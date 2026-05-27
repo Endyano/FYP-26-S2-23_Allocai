@@ -4,13 +4,13 @@ from psycopg2.extras import RealDictCursor
 class UserAccount:
 
     def __init__(self):
-        self.connection_config = [
+        self.connection_config = {
             "dbname": "task_allocation_db",
             "user" : "postgres",
             "password" : "fypsql",
             "host" : "localhost",
             "port" : "5432"
-        ]
+        }
 
     def verify(self, username, password, role):
         # 1. Map incoming lowercase route parameters to explicit database strings
