@@ -1,14 +1,14 @@
 from flask import session
 
-
 class UserSession:
 
     @staticmethod
     def login(user):
         session['user_id'] = user['id']
-        session['username'] = user['username']
+        session['username'] = user['email']
+        session['full_name'] = user['full_name']
         session['role'] = user['role']
-
+        
     @staticmethod
     def logout():
         session.clear()
