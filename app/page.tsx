@@ -1,8 +1,27 @@
 'use client';
 
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 
 export default function HomePage() {
+  
+  // 1. State variable to store the logged-in user's name
+  const [userName, setUserName] = useState<string | null>(null);
+
+  // 2. Check localStorage when the page loads
+  useEffect(() => {
+    const savedUser = localStorage.getItem('allocai_user');
+    if (savedUser) {
+      setUserName(savedUser); // This triggers the UI switch!
+    }
+  }, []);
+
+  // 3. A function to log out (attached to the profile badge)
+  const handleLogout = () => {
+    localStorage.removeItem('allocai_user');
+    setUserName(null);
+  };
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#FCFBF9] text-zinc-900 font-sans selection:bg-rose-100">
       
@@ -15,6 +34,7 @@ export default function HomePage() {
       <div className="absolute right-[-10%] top-[20%] -z-10 h-[30rem] w-[30rem] rounded-full bg-sky-50/50 blur-3xl" />
 
       <div className="mx-auto relative max-w-6xl px-6 py-8">
+        
         {/* Frosted Jewel Navbar */}
         <nav className="sticky top-4 z-50 mx-auto flex max-w-5xl items-center justify-between rounded-full border border-white/50 bg-white/80 px-6 py-3.5 shadow-sm ring-1 ring-zinc-900/5 backdrop-blur-xl">
           <span className="text-2xl font-bold tracking-tight bg-gradient-to-r from-rose-500 to-rose-600 bg-clip-text text-transparent">
@@ -24,26 +44,43 @@ export default function HomePage() {
             <a href="#product" className="transition-colors hover:text-rose-500">Product</a>
             <a href="#features" className="transition-colors hover:text-rose-500">Features</a>
           </div>
+          
+          {/* CONDITIONAL RENDERING BLOCK */}
           <div className="flex items-center gap-6 text-sm font-medium">
             
-            {/* Secondary Button: Log In (Now Dark) */}
-            <Link 
-              href="/Features/login" 
-              className="bg-zinc-900 text-white border border-zinc-700 border-b-[4px] font-semibold overflow-hidden relative px-6 py-2 rounded-full hover:bg-zinc-800 hover:border-t-[4px] hover:border-b active:opacity-75 outline-none duration-300 group backdrop-blur-sm"
-            >
-              <span className="bg-white shadow-white absolute -top-[150%] left-0 inline-flex w-80 h-[5px] rounded-md opacity-20 group-hover:top-[150%] duration-500 shadow-[0_0_15px_15px_rgba(255,255,255,0.2)]"></span>
-              Log in
-            </Link>
+            {userName ? (
+              /* --- SHOW THIS IF LOGGED IN: User Profile Pill --- */
+              <div 
+                onClick={handleLogout}
+                className="flex cursor-pointer items-center gap-3 rounded-full bg-white/60 pl-1.5 pr-5 py-1.5 ring-1 ring-zinc-200 backdrop-blur-md transition-all hover:bg-white hover:shadow-md"
+                title="Click to log out"
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-white font-bold shadow-inner uppercase">
+                  {userName.charAt(0)}
+                </div>
+                <span className="font-semibold text-zinc-800 capitalize">{userName}</span>
+              </div>
+            ) : (
+              /* --- SHOW THIS IF LOGGED OUT: Original Buttons --- */
+              <>
+                <Link 
+                  href="/Features/login" 
+                  className="bg-zinc-900 text-white border border-zinc-700 border-b-[4px] font-semibold overflow-hidden relative px-6 py-2 rounded-full hover:bg-zinc-800 hover:border-t-[4px] hover:border-b active:opacity-75 outline-none duration-300 group backdrop-blur-sm"
+                >
+                  <span className="bg-white shadow-white absolute -top-[150%] left-0 inline-flex w-80 h-[5px] rounded-md opacity-20 group-hover:top-[150%] duration-500 shadow-[0_0_15px_15px_rgba(255,255,255,0.2)]"></span>
+                  Log in
+                </Link>
 
-            {/* Primary Button: Start for free (Dark) */}
-            <a 
-              href="#" 
-              className="bg-zinc-900 text-white border border-zinc-700 border-b-[4px] font-semibold overflow-hidden relative px-6 py-2 rounded-full hover:bg-zinc-800 hover:border-t-[4px] hover:border-b active:opacity-75 outline-none duration-300 group backdrop-blur-sm"
-            >
-              <span className="bg-white shadow-white absolute -top-[150%] left-0 inline-flex w-80 h-[5px] rounded-md opacity-20 group-hover:top-[150%] duration-500 shadow-[0_0_15px_15px_rgba(255,255,255,0.2)]"></span>
-              Start for free
-            </a>
-            
+                <a 
+                  href="#" 
+                  className="bg-zinc-900 text-white border border-zinc-700 border-b-[4px] font-semibold overflow-hidden relative px-6 py-2 rounded-full hover:bg-zinc-800 hover:border-t-[4px] hover:border-b active:opacity-75 outline-none duration-300 group backdrop-blur-sm"
+                >
+                  <span className="bg-white shadow-white absolute -top-[150%] left-0 inline-flex w-80 h-[5px] rounded-md opacity-20 group-hover:top-[150%] duration-500 shadow-[0_0_15px_15px_rgba(255,255,255,0.2)]"></span>
+                  Start for free
+                </a>
+              </>
+            )}
+
           </div>
         </nav>
 
