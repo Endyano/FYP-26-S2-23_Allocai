@@ -25,18 +25,6 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-@keyframes scanVertical {
-  0%, 100% { 
-    /* Increased from -20deg to -35deg to reach the top task */
-    transform: translateY(-50%) rotate(-35deg); 
-    opacity: 0.3; 
-  } 
-  50% { 
-    /* Increased from 20deg to 35deg to reach the bottom task */
-    transform: translateY(-50%) rotate(35deg); 
-    opacity: 0.8; 
-  } 
-}
 /* Custom animations for login page */
 @keyframes blob {
   0% { transform: translate(0px, 0px) scale(1); }
@@ -56,114 +44,6 @@ body {
   .transform-3d:hover { transform: rotateX(-5deg) rotateY(10deg); }
 }
 
-/* --- ITEM SCAN GLOW TIMINGS (Syncs with robot beam) --- */
-@keyframes item-scan-glow {
-  0%, 100% { border-color: transparent; background: transparent; }
-  50% { 
-    border-color: rgba(125, 211, 252, 0.6); 
-    background: rgba(125, 211, 252, 0.1); 
-    box-shadow: 0 0 15px rgba(125, 211, 252, 0.3); 
-  }
-}
-
-.animate-scan-1 { animation: item-scan-glow 4s infinite -1.5s; }
-.animate-scan-2 { animation: item-scan-glow 4s infinite -1.0s; }
-.animate-scan-3 { animation: item-scan-glow 4s infinite -0.5s; }
-.animate-scan-4 { animation: item-scan-glow 4s infinite 0s; }
-
-/* --- AI MASCOT (EVA) CSS --- */
-.modelViewPort {
-  perspective: 1000px;
-  width: 15rem; 
-  aspect-ratio: 1;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: transparent; 
-  overflow: hidden;
-}
-.eva {
-  --EVA-ROTATION-DURATION: 4s;
-  transform-style: preserve-3d;
-  animation: rotateRight var(--EVA-ROTATION-DURATION) linear infinite alternate;
-}
-.head {
-  position: relative; width: 6rem; height: 4rem;
-  border-radius: 48% 53% 45% 55% / 79% 79% 20% 22%;
-  background: linear-gradient(to right, white 45%, #e7e5e4);
-  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-}
-.eyeChamber {
-  width: 4.5rem; height: 2.75rem; position: relative;
-  left: 50%; top: 55%;
-  border-radius: 45% 53% 45% 48% / 62% 59% 35% 34%;
-  background-color: #1c1917; 
-  box-shadow: 0px 0px 2px 2px white, inset 0px 0px 0px 2px #444;
-  transform: translate(-50%, -50%);
-  animation: moveRight var(--EVA-ROTATION-DURATION) linear infinite alternate;
-}
-.eye {
-  width: 1.2rem; height: 1.5rem; position: absolute; border-radius: 50%;
-}
-.eye:first-child {
-  left: 12px; top: 50%;
-  background: repeating-linear-gradient(65deg, #7dd3fc 0px, #7dd3fc 1px, white 2px); 
-  box-shadow: inset 0px 0px 5px #38bdf8, 0px 0px 15px 1px #0ea5e9;
-  transform: translate(0, -50%) rotate(-65deg);
-}
-.eye:nth-child(2) {
-  right: 12px; top: 50%;
-  background: repeating-linear-gradient(-65deg, #7dd3fc 0px, #7dd3fc 1px, white 2px); 
-  box-shadow: inset 0px 0px 5px #38bdf8, 0px 0px 15px 1px #0ea5e9;
-  transform: translate(0, -50%) rotate(65deg);
-}
-.body {
-  width: 6rem; height: 8rem; position: relative; margin-block-start: 0.25rem;
-  border-radius: 47% 53% 45% 55% / 12% 9% 90% 88%;
-  background: linear-gradient(to right, white 35%, #e7e5e4);
-  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-}
-.hand {
-  position: absolute; left: -1.5rem; top: 0.75rem; width: 2rem; height: 5.5rem;
-  border-radius: 40%; background: linear-gradient(to left, white 15%, #e7e5e4);
-  box-shadow: 5px 0px 5px rgba(0, 0, 0, 0.1);
-  transform: rotateY(55deg) rotateZ(10deg);
-}
-.hand:first-child {
-  animation: compensateRotation var(--EVA-ROTATION-DURATION) linear infinite alternate;
-}
-.hand:nth-child(2) {
-  left: 92%; background: linear-gradient(to right, white 15%, #e7e5e4);
-  transform: rotateY(55deg) rotateZ(-10deg);
-  animation: compensateRotationRight var(--EVA-ROTATION-DURATION) linear infinite alternate;
-}
-
-/* --- THE SIDEWAYS SCANNER BEAM (FIXED) --- */
-/* --- THE SIDEWAYS SCANNER BEAM (FIXED SHAPE) --- */
-.scannerThing {
-  position: absolute;
-  left: 55%;
-  top: 40%;
-  
-  /* 1. INCREASE WIDTH: Shoots the beam much further to the right */
-  width: 450px;   
-  
-  /* 2. INCREASE HEIGHT: Keeps the cone proportion wide at the end */
-  height: 300px;  
-  
-  background: linear-gradient(to right, rgba(125, 211, 252, 0.7), rgba(125, 211, 252, 0.1));
-  clip-path: polygon(0 50%, 100% 0, 100% 100%);
-  transform-origin: 0 50%;
-  mask: linear-gradient(to right, black 10%, transparent 100%);
-  -webkit-mask: linear-gradient(to right, black 10%, transparent 100%);
-  
-  animation: scanVertical 3s ease-in-out infinite;
-  
-  /* Puts the beam *behind* the list text so it looks like it's scanning the background */
-  z-index: 1; 
-}
-
 /* --- RE-SKINNED EXPANDING TASK SCANNER --- */
 .smart-task-container {
   position: relative; width: 340px; height: 90px;
@@ -181,7 +61,7 @@ body {
 }
 .smart-task-container:hover .glass-block {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-  border-color: #7dd3fc; /* Glows blue on hover to match AI */
+  border-color: #7dd3fc; 
 }
 .main-content {
   position: relative; width: 100%; height: 100%;
@@ -194,11 +74,14 @@ body {
 .smart-task-container:hover .title-text {
   opacity: 0; transform: translateY(-40px) scale(0.8); filter: blur(4px);
 }
+
+/* Clickable checklist grid */
 .todo-grid {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
   display: grid; grid-template-rows: repeat(4, 1fr); gap: 8px;
   padding: 24px 20px; opacity: 0; transform: translateY(-10px) scale(0.95);
   transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  z-index: 10; 
 }
 .smart-task-container:hover .todo-grid {
   opacity: 1; transform: translateY(0) scale(1);
@@ -232,16 +115,4 @@ body {
 }
 .smart-task-container:hover .scan-effect {
   opacity: 0.8; top: 110%; transition: top 2.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* clickable checklist */
-
-.todo-grid {
-  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  display: grid; grid-template-rows: repeat(4, 1fr); gap: 8px;
-  padding: 24px 20px; opacity: 0; transform: translateY(-10px) scale(0.95);
-  transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  
-  /* ADD THIS LINE to make it clickable */
-  z-index: 10; 
 }

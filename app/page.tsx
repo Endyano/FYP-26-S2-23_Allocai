@@ -90,24 +90,7 @@ export default function HomePage() {
           {/* HORIZONTAL LAYOUT: ROBOT (LEFT) -> SCANS -> TASK BOARD (RIGHT) */}
           <div className="relative z-10 mb-10 mt-6 flex flex-col md:flex-row items-center justify-center gap-12 w-full max-w-4xl mx-auto">
             
-            {/* 1. THE AI MASCOT (Left) */}
-            <div className="modelViewPort transition-transform hover:scale-105 z-20 shrink-0">
-              <div className="eva">
-                <div className="head">
-                  <div className="eyeChamber">
-                    <div className="eye"></div>
-                    <div className="eye"></div>
-                  </div>
-                </div>
-                <div className="body">
-                  <div className="hand"></div>
-                  <div className="hand"></div>
-                  <div className="scannerThing"></div>
-                  <div className="scannerOrigin"></div>
-                </div>
-              </div>
-            </div>
-
+        
             {/* 2. EXPANDING TASK SCANNER (Right) */}
             <div className="relative z-10 w-full max-w-sm">
               <div className="smart-task-container">
