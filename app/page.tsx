@@ -25,16 +25,25 @@ export default function HomePage() {
             <a href="#features" className="transition-colors hover:text-rose-500">Features</a>
           </div>
           <div className="flex items-center gap-6 text-sm font-medium">
+            
+            {/* Secondary Button: Log In (Now Dark) */}
             <Link 
               href="/Features/login" 
-              className="bg-rose-50/50 text-rose-600 border border-rose-200 border-b-[4px] font-semibold overflow-hidden relative px-6 py-2 rounded-full hover:bg-rose-50 hover:border-t-[4px] hover:border-b active:opacity-75 outline-none duration-300 group backdrop-blur-sm"
+              className="bg-zinc-900 text-white border border-zinc-700 border-b-[4px] font-semibold overflow-hidden relative px-6 py-2 rounded-full hover:bg-zinc-800 hover:border-t-[4px] hover:border-b active:opacity-75 outline-none duration-300 group backdrop-blur-sm"
             >
-              <span className="bg-white shadow-white absolute -top-[150%] left-0 inline-flex w-80 h-[5px] rounded-md opacity-80 group-hover:top-[150%] duration-500 shadow-[0_0_15px_15px_rgba(255,255,255,0.8)]"></span>
+              <span className="bg-white shadow-white absolute -top-[150%] left-0 inline-flex w-80 h-[5px] rounded-md opacity-20 group-hover:top-[150%] duration-500 shadow-[0_0_15px_15px_rgba(255,255,255,0.2)]"></span>
               Log in
             </Link>
-            <a href="#" className="rounded-full bg-zinc-900 px-6 py-2.5 text-white transition-all hover:bg-rose-500 hover:shadow-lg hover:scale-105">
+
+            {/* Primary Button: Start for free (Dark) */}
+            <a 
+              href="#" 
+              className="bg-zinc-900 text-white border border-zinc-700 border-b-[4px] font-semibold overflow-hidden relative px-6 py-2 rounded-full hover:bg-zinc-800 hover:border-t-[4px] hover:border-b active:opacity-75 outline-none duration-300 group backdrop-blur-sm"
+            >
+              <span className="bg-white shadow-white absolute -top-[150%] left-0 inline-flex w-80 h-[5px] rounded-md opacity-20 group-hover:top-[150%] duration-500 shadow-[0_0_15px_15px_rgba(255,255,255,0.2)]"></span>
               Start for free
             </a>
+            
           </div>
         </nav>
 
