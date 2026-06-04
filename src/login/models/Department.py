@@ -79,3 +79,6 @@ class Department:
                 cursor.close()
             if connection:
                 connection.close()
+
+    def get_department_by_user_id(self, user_id):
+        return self.get_department_by_id(user_id)
