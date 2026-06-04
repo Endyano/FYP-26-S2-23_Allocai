@@ -8,6 +8,7 @@ class UserSession:
         session['user_id'] = user['id']
         session['username'] = user['username']
         session['role'] = user['role']
+        session['full_name'] = user.get('full_name')
 
     @staticmethod
     def logout():
@@ -28,3 +29,7 @@ class UserSession:
     @staticmethod
     def get_role():
         return session.get('role')
+
+    @staticmethod
+    def get_full_name():
+        return session.get('full_name')
