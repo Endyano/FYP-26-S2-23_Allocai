@@ -2,7 +2,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 
-class TaskAllocation:
+class CasualStaff:
 
     def __init__(self):
         self.connection_config = {
@@ -16,7 +16,7 @@ class TaskAllocation:
     def get_connection(self):
         return psycopg2.connect(**self.connection_config)
 
-    def get_all_allocations(self):
+    def get_all_staff(self):
         connection = None
         cursor = None
 
@@ -25,16 +25,21 @@ class TaskAllocation:
             cursor = connection.cursor(cursor_factory=RealDictCursor)
 
             query = """
-                SELECT *
-                FROM public.task_allocations
-                ORDER BY id DESC;
+                SELECT 
+                    id,
+                    full_name,
+                    email AS username,
+                    role
+                FROM public.profiles
+                WHERE role = 'Casual Staff'
+                ORDER BY full_name;
             """
 
             cursor.execute(query)
             return cursor.fetchall()
 
         except Exception as error:
-            print(f"Get all allocations error: {error}")
+            print(f"Get casual staff error: {error}")
             return []
 
         finally:
@@ -43,7 +48,7 @@ class TaskAllocation:
             if connection:
                 connection.close()
 
-    def get_allocations_by_staff(self, staff_id):
+    def get_staff_by_id(self, staff_id):
         connection = None
         cursor = None
 
@@ -52,18 +57,22 @@ class TaskAllocation:
             cursor = connection.cursor(cursor_factory=RealDictCursor)
 
             query = """
-                SELECT *
-                FROM public.task_allocations
-                WHERE staff_id = %s
-                ORDER BY id DESC;
+                SELECT 
+                    id,
+                    full_name,
+                    email AS username,
+                    role
+                FROM public.profiles
+                WHERE id = %s
+                AND role = 'Casual Staff';
             """
 
             cursor.execute(query, (staff_id,))
-            return cursor.fetchall()
+            return cursor.fetchone()
 
         except Exception as error:
-            print(f"Get allocations by staff error: {error}")
-            return []
+            print(f"Get casual staff by ID error: {error}")
+            return None
 
         finally:
             if cursor:
@@ -71,27 +80,74 @@ class TaskAllocation:
             if connection:
                 connection.close()
 
-    def get_allocations_by_department(self, department_id):
+    def get_profile(self, staff_id):
+        return self.get_staff_by_id(staff_id)
+
+    def update_profile(self, staff_id, full_name, username):
         connection = None
         cursor = None
+
+        if not full_name or not username:
+            return {
+                "success": False,
+                "message": "Full name and username/email are required."
+            }
 
         try:
             connection = self.get_connection()
             cursor = connection.cursor(cursor_factory=RealDictCursor)
 
-            query = """
-                SELECT *
-                FROM public.task_allocations
-                WHERE department_id = %s
-                ORDER BY id DESC;
+            duplicate_query = """
+                SELECT id
+                FROM public.profiles
+                WHERE email = %s
+                AND id <> %s;
             """
 
-            cursor.execute(query, (department_id,))
-            return cursor.fetchall()
+            cursor.execute(duplicate_query, (username, staff_id))
+            duplicate_user = cursor.fetchone()
+
+            if duplicate_user:
+                return {
+                    "success": False,
+                    "message": "Username/email is already used by another account."
+                }
+
+            update_query = """
+                UPDATE public.profiles
+                SET full_name = %s,
+                    email = %s
+                WHERE id = %s
+                AND role = 'Casual Staff'
+                RETURNING id, full_name, email AS username, role;
+            """
+
+            cursor.execute(update_query, (full_name, username, staff_id))
+            updated_profile = cursor.fetchone()
+            connection.commit()
+
+            if updated_profile is None:
+                return {
+                    "success": False,
+                    "message": "Casual employee profile was not found."
+                }
+
+            return {
+                "success": True,
+                "message": "Profile updated successfully.",
+                "profile": dict(updated_profile)
+            }
 
         except Exception as error:
-            print(f"Get allocations by department error: {error}")
-            return []
+            if connection:
+                connection.rollback()
+
+            print(f"Update casual staff profile error: {error}")
+
+            return {
+                "success": False,
+                "message": "System failed to update the profile."
+            }
 
         finally:
             if cursor:
