@@ -1,59 +1,63 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
+
 class UserAccount:
 
     def __init__(self):
         self.connection_config = {
             "dbname": "task_allocation_db",
-            "user" : "postgres",
-            "password" : "fypsql",
-            "host" : "localhost",
-            "port" : "5432"
+            "user": "postgres",
+            "password": "fypsql",
+            "host": "localhost",
+            "port": "5432"
         }
 
-    def verify(self, username, password, role):
-        # 1. Map incoming lowercase route parameters to explicit database strings
-        role_mapping = {
-            'manager': 'Manager',
-            'department': 'Dept Staff',
-            'casual_staff': 'Casual Staff'
-        }
-        
-        db_role = role_mapping.get(role)
-        if not db_role:
-            return None
-
+    def verify(self, username, password):
         connection = None
         cursor = None
-        
+
         try:
-            # 2. Establish connection with Dict Cursor
             connection = psycopg2.connect(**self.connection_config)
             cursor = connection.cursor(cursor_factory=RealDictCursor)
-            
+
             query = """
-                SELECT p.id, p.full_name, p.email, p.role 
+                SELECT 
+                    p.id,
+                    p.full_name,
+                    p.email AS username,
+                    p.role
                 FROM auth.users u
                 JOIN public.profiles p ON u.id = p.id
-                WHERE p.email = %s AND u.raw_user_meta_data->>'password' = %s AND p.role = %s;
+                WHERE p.email = %s
+                AND u.raw_user_meta_data->>'password' = %s;
             """
-            
-            cursor.execute(query, (username, password, db_role))
+
+            cursor.execute(query, (username, password))
             user = cursor.fetchone()
-            
-            if user:
-                reverse_mapping = {v: k for k, v in role_mapping.items()}
-                user_dict = dict(user)
-                user_dict['role'] = reverse_mapping.get(user_dict['role'])
-                return user_dict
-                
-            return None
+
+            if user is None:
+                return None
+
+            user_dict = dict(user)
+
+            role_mapping = {
+                'Manager': 'manager',
+                'Dept Staff': 'department',
+                'Casual Staff': 'casual_staff'
+            }
+
+            user_dict['role'] = role_mapping.get(user_dict['role'])
+
+            if user_dict['role'] is None:
+                return None
+
+            return user_dict
 
         except Exception as error:
             print(f"Database authentication query error: {error}")
             return None
-            
+
         finally:
             if cursor:
                 cursor.close()
