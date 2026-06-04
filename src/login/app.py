@@ -1,7 +1,10 @@
 from flask import Flask, jsonify, render_template, request, redirect, session
 from models.UserAccount import UserAccount
 from models.UserSession import UserSession
-from flask_cors import CORS  
+from flask_cors import CORS 
+from models.CasualStaff import CasualStaff
+from models.TaskAllocation import TaskAllocation
+from models.Department import Department
 
 app = Flask(__name__)
 
@@ -26,62 +29,47 @@ def login_page():
 @app.route('/login', methods=['POST'])
 def login():
 
-    # to receive form data
     username = request.form.get('username')
     password = request.form.get('password')
-    role = request.form.get('role')
 
-   # print(f"\n--- DEBUGGING BACKEND RECEIVED DATA ---")
-   # print(f"Form Username: {username} | Form Password: {password} | Form Role: {role}")
-   # print(f"----------------------------------------\n")
-
-    # to validate the input
-    if not username or not password or not role:
-        session['login_error'] = 'Please fill in all login fields.'
-        return redirect('/')
-
-    # to verify user account
-    user_account = UserAccount()
-
-    user = user_account.verify(
-        username,
-        password,
-        role
-    )
-
-    # for invalid login
-    if user:
-        session['user'] = user  # Store user in backend session
+    if not username or not password:
         return jsonify({
-            "success": True,
-            "message": "Login successful",
-            "role": user['role'],
-            "redirect_to": "/"  #  Bounces straight to the main root homepage
-        }), 200
+            "success": False,
+            "message": "Please fill in all login fields."
+        }), 400
+
+    user_account = UserAccount()
+    user = user_account.verify(username, password)
+
+    if user is None:
+        return jsonify({
+            "success": False,
+            "message": "Invalid username or password."
+        }), 401
+
+    UserSession.login(user)
+
+    if user['role'] == 'manager':
+        redirect_to = '/manager_dashboard'
+
+    elif user['role'] == 'casual_staff':
+        redirect_to = '/casual_staff_dashboard'
+
+    elif user['role'] == 'department':
+        redirect_to = '/department_dashboard'
+
     else:
         return jsonify({
             "success": False,
-            "message": "Invalid username, password, or role."
-        }), 401
+            "message": "Unknown role."
+        }), 400
 
-    # Create session
-    UserSession.login(user)
-
-    # Redirect based on role
-    # the file name change accordingly
-    if user['role'] == 'manager':
-        return redirect('/manager_dashboard')
-
-    elif user['role'] == 'casual_staff':
-        return redirect('/casual_staff_dashboard')
-
-    elif user['role'] == 'department':
-        return redirect('/department_dashboard')
-
-    else:
-        session['login_error'] = 'Unknown role.'
-        return redirect('/')
-
+    return jsonify({
+        "success": True,
+        "message": "Login successful",
+        "role": user['role'],
+        "redirect_to": redirect_to
+    }), 200
 
 # managing all the dashboards
 # file name change accordingly
@@ -108,9 +96,18 @@ def casual_staff_dashboard():
 
     if UserSession.get_role() != 'casual_staff':
         return "Access Denied"
+    
+    task_allocation = TaskAllocation()
 
-    return render_template('casual_staff_dashboard.html') # file name change accordingly
+    assigned_tasks = task_allocation.get_allocations_by_staff(
+        UserSession.get_user_id()
+    )
 
+    return render_template(
+        'casual_staff_dashboard.html', # filename change accordingly
+        username=UserSession.get_username(),
+        assigned_tasks=assigned_tasks
+    )
 
 # file name change accordingly
 # for department dashboard
@@ -122,9 +119,19 @@ def department_dashboard():
 
     if UserSession.get_role() != 'department':
         return "Access Denied"
+    
+    casual_staff = CasualStaff()
+    task_allocation = TaskAllocation()
 
-    return render_template('department_dashboard.html') # file name change accordingly
+    available_staff = casual_staff.get_all_staff()
+    recent_allocations = task_allocation.get_all_allocations()
 
+    return render_template(
+        'department_dashboard.html', # filename change accordingly
+        username=UserSession.get_username(),
+        available_staff=available_staff,
+        recent_allocations=recent_allocations
+    )
 
 # for logout process
 @app.route('/logout')
