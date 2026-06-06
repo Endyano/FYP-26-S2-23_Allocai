@@ -86,13 +86,13 @@ def login():
     UserSession.login(user)
 
     if user['role'] == 'manager':
-        redirect_to = '/manager_dashboard'
+        redirect_to = '/Features/manager_dashboard'
 
     elif user['role'] == 'casual_staff':
-        redirect_to = '/casual_staff_dashboard'
+        redirect_to = '/Features/casual_staff_dashboard'
 
     elif user['role'] == 'department':
-        redirect_to = '/department_dashboard'
+        redirect_to = '/Features/department_dashboard'
 
     else:
         return jsonify({
