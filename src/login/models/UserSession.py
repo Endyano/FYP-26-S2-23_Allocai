@@ -6,7 +6,7 @@ class UserSession:
     @staticmethod
     def login(user):
         session['user_id'] = user['id']
-        session['username'] = user['username']
+        session['username'] = user['email']
         session['role'] = user['role']
         session['full_name'] = user.get('full_name')
 

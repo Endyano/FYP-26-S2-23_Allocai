@@ -3,7 +3,7 @@ from psycopg2.extras import RealDictCursor
 
 class UserAccount:
 
-    def init(self):
+    def __init__(self):
         self.connection_config = {
          "dbname": "postgres",
          "user": "postgres.wmuqbyzzagrdpflhstay",
@@ -11,6 +11,10 @@ class UserAccount:
          "host": "aws-1-ap-southeast-2.pooler.supabase.com",
          "port": "6543"
 }
+        
+    def get_connection(self):
+        return psycopg2.connect(**self.connection_config)
+
     def verify(self, username, password, role):
         # 1. Map incoming lowercase route parameters to explicit database strings
         role_mapping = {

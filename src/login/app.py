@@ -4,7 +4,7 @@ from flask_cors import CORS
 from models.UserAccount import UserAccount
 from models.UserSession import UserSession
 from models.CasualStaff import CasualStaff
-from models.TaskAllocation import TaskAllocation
+# from models.TaskAllocation import TaskAllocation # Remove comment when TaskAllocation is updated
 from models.Manager import Manager
 
 app = Flask(__name__)
@@ -61,6 +61,12 @@ def login():
     username = data.get('username')
     password = data.get('password')
     role = data.get('role')
+
+    print(f"--- INCOMING LOGIN ATTEMPT ---")
+    print(f"Typed Username: {username}")
+    print(f"Typed Password: {password}")
+    print(f"Selected Role: {role}")
+    print(f"------------------------------")
 
     if not username or not password or not role:
         return jsonify({
@@ -322,4 +328,5 @@ def api_logout():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Force it to bind to localhost explicitly on port 5000
+    app.run(host='localhost', port=5000, debug=True)
