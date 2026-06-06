@@ -5,7 +5,7 @@ from models.UserAccount import UserAccount
 from models.UserSession import UserSession
 from models.CasualStaff import CasualStaff
 from models.TaskAllocation import TaskAllocation
-
+from models.Manager import Manager
 
 app = Flask(__name__)
 
@@ -270,6 +270,38 @@ def logout():
     UserSession.logout()
 
     return redirect('/')
+
+
+@app.route('/api/manager/staff', methods=['GET'])
+def manager_view_staff():
+
+    access_error = require_login('manager')
+
+    if access_error:
+        return access_error
+
+    casual_staff = CasualStaff()
+
+    return jsonify({
+        "success": True,
+        "staff": casual_staff.get_all_staff()
+    }), 200
+
+
+@app.route('/api/manager/create-staff', methods=['POST'])
+def create_staff():
+
+    manager = Manager()
+
+    data = request.get_json()
+
+    result = manager.create_staff(
+        data.get("full_name"),
+        data.get("email"),
+        data.get("password")
+    )
+
+    return jsonify(result)
 
 
 @app.route('/api/logout', methods=['POST', 'GET'])
