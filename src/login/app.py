@@ -294,10 +294,14 @@ def manager_view_staff():
 
 @app.route('/api/manager/create-staff', methods=['POST'])
 def create_staff():
+    access_error = require_login('manager')
+
+    if access_error:
+        return access_error
+
+    data = request.get_json() or {}
 
     manager = Manager()
-
-    data = request.get_json()
 
     result = manager.create_staff(
         data.get("full_name"),
@@ -305,7 +309,9 @@ def create_staff():
         data.get("password")
     )
 
-    return jsonify(result)
+    status_code = 201 if result["success"] else 400
+
+    return jsonify(result), status_code
 
 
 @app.route('/api/logout', methods=['POST', 'GET'])
