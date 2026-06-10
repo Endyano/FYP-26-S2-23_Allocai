@@ -328,5 +328,5 @@ def api_logout():
 
 
 if __name__ == '__main__':
-    # Force it to bind to localhost explicitly on port 5000
-    app.run(host='localhost', port=5000, debug=True)
+    # Change 'localhost' to '127.0.0.1'
+    app.run(host='127.0.0.1', port=5000, debug=True)
