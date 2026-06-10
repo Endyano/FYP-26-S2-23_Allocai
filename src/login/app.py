@@ -46,12 +46,10 @@ def require_login(required_role=None):
 
 @app.route('/')
 def login_page():
-    error = session.pop('login_error', None)
-
-    return render_template(
-        'login.html',
-        error=error
-    )
+    return jsonify({
+        "success": True,
+        "message": "Flask backend is running."
+    })
 
 
 @app.route('/login', methods=['POST'])
