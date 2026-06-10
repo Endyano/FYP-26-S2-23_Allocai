@@ -4,7 +4,7 @@ from flask_cors import CORS
 from models.UserAccount import UserAccount
 from models.UserSession import UserSession
 from models.CasualStaff import CasualStaff
-# from models.TaskAllocation import TaskAllocation # Remove comment when TaskAllocation is updated
+from models.TaskAllocation import TaskAllocation
 from models.Manager import Manager
 
 app = Flask(__name__)
