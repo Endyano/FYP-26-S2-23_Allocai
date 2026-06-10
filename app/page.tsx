@@ -5,18 +5,18 @@ import { useState, useEffect } from 'react';
 
 export default function HomePage() {
   
-  // 1. State variable to store the logged-in user's name
+  // Save the name of the user who is logged in
   const [userName, setUserName] = useState<string | null>(null);
 
-  // 2. Check localStorage when the page loads
+  // Check the computer's memory when the page opens to see if someone is logged in
   useEffect(() => {
     const savedUser = localStorage.getItem('allocai_user');
     if (savedUser) {
-      setUserName(savedUser); // This triggers the UI switch!
+      setUserName(savedUser); // This changes the top bar to show the user's name
     }
   }, []);
 
-  // 3. A function to log out (attached to the profile badge)
+  // A function to sign out and clear the saved name
   const handleLogout = () => {
     localStorage.removeItem('allocai_user');
     setUserName(null);
@@ -25,17 +25,17 @@ export default function HomePage() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#FCFBF9] text-zinc-900 font-sans selection:bg-rose-100">
       
-      {/* Dynamic Grid Background */}
+      {/* Moving grid pattern in the background */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(231,229,228,0.6)_1px,transparent_1px),linear-gradient(to_bottom,rgba(231,229,228,0.6)_1px,transparent_1px)] bg-[size:24px_24px] animate-[pulse_10s_ease-in-out_infinite]" />
       
-      {/* Dramatic Background Glows */}
+      {/* Soft colored glowing circles in the background */}
       <div className="absolute left-1/2 top-0 -z-10 h-[50rem] w-[50rem] -translate-x-1/2 bg-[radial-gradient(ellipse_at_top,rgba(251,113,133,0.15),transparent_50%)]" />
       <div className="absolute left-[-10%] top-[-10%] -z-10 h-[40rem] w-[40rem] rounded-full bg-rose-50/50 blur-3xl" />
       <div className="absolute right-[-10%] top-[20%] -z-10 h-[30rem] w-[30rem] rounded-full bg-sky-50/50 blur-3xl" />
 
       <div className="mx-auto relative max-w-6xl px-6 py-8">
         
-        {/* Frosted Jewel Navbar */}
+        {/* Top Navigation Bar */}
         <nav className="sticky top-4 z-50 mx-auto flex max-w-5xl items-center justify-between rounded-full border border-white/50 bg-white/80 px-6 py-3.5 shadow-sm ring-1 ring-zinc-900/5 backdrop-blur-xl">
           <span className="text-2xl font-bold tracking-tight bg-gradient-to-r from-rose-500 to-rose-600 bg-clip-text text-transparent">
             Allocai
@@ -45,11 +45,10 @@ export default function HomePage() {
             <a href="#features" className="transition-colors hover:text-rose-500">Features</a>
           </div>
           
-          {/* CONDITIONAL RENDERING BLOCK */}
           <div className="flex items-center gap-6 text-sm font-medium">
             
+            {/* If the user is logged in, show their profile circle */}
             {userName ? (
-              /* --- SHOW THIS IF LOGGED IN: User Profile Pill --- */
               <div 
                 onClick={handleLogout}
                 className="flex cursor-pointer items-center gap-3 rounded-full bg-white/60 pl-1.5 pr-5 py-1.5 ring-1 ring-zinc-200 backdrop-blur-md transition-all hover:bg-white hover:shadow-md"
@@ -61,7 +60,7 @@ export default function HomePage() {
                 <span className="font-semibold text-zinc-800 capitalize">{userName}</span>
               </div>
             ) : (
-              /* --- SHOW THIS IF LOGGED OUT: Original Buttons --- */
+              /* If nobody is logged in, show the regular Log In buttons */
               <>
                 <Link 
                   href="/Features/login" 
@@ -84,19 +83,17 @@ export default function HomePage() {
           </div>
         </nav>
 
-        {/* Hero Section */}
+        {/* Main Title Area */}
         <section className="mt-20 mb-24 text-center flex flex-col items-center">
           
-          {/* HORIZONTAL LAYOUT: ROBOT (LEFT) -> SCANS -> TASK BOARD (RIGHT) */}
           <div className="relative z-10 mb-10 mt-6 flex flex-col md:flex-row items-center justify-center gap-12 w-full max-w-4xl mx-auto">
             
-        
-            {/* 2. EXPANDING TASK SCANNER (Right) */}
+            {/* The Animated Task Scanner Box */}
             <div className="relative z-10 w-full max-w-sm">
               <div className="smart-task-container">
                 <div className="glass-block">
                   
-                  {/* Default State (Closed) */}
+                  {/* What it looks like before you hover */}
                   <div className="main-content">
                     <h2 className="title-text flex items-center gap-3">
                       <span className="relative flex h-3 w-3 mr-1">
@@ -107,7 +104,7 @@ export default function HomePage() {
                     </h2>
                   </div>
 
-                  {/* Hover State (Expanded Checklist with Glowing Scan items) */}
+                  {/* What it looks like when you hover over it */}
                   <div className="todo-grid">
                     <div className="todo-item animate-scan-1">
                       <input type="checkbox" id="task1" className="todo-checkbox" defaultChecked />
@@ -127,13 +124,12 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* Internal Scanning Laser Line */}
+                  {/* The moving blue laser line */}
                   <div className="scan-effect"></div>
                 </div>
               </div>
             </div>
           </div>
-          {/* END HORIZONTAL LAYOUT */}
 
           <h1 className="mx-auto mt-8 max-w-4xl text-6xl font-extrabold tracking-tight sm:text-8xl leading-[1] text-zinc-900">
             Plan your team's day, <br />
@@ -150,9 +146,10 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 3D Interactive Tilt Bento Grid */}
+        {/* 3D Moving Feature Boxes */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto pb-20 perspective-wrapper">
           
+          {/* Feature 1: Instant Match */}
           <div className="group relative rounded-[2.5rem] bg-white p-9 shadow-md ring-1 ring-zinc-900/5 overflow-hidden transition-all duration-300 transform-3d hover:shadow-2xl hover:shadow-rose-100">
             <div className="absolute right-[-10%] top-[-10%] h-40 w-40 rounded-full bg-rose-50/50 blur-2xl transition-transform group-hover:scale-110" />
             <div className="relative z-10 flex h-full flex-col justify-between space-y-12">
@@ -177,6 +174,7 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* Feature 2: Live Overview */}
           <div className="group relative rounded-[2.5rem] bg-white p-9 shadow-md ring-1 ring-zinc-900/5 overflow-hidden transition-all duration-300 transform-3d hover:shadow-2xl hover:shadow-sky-100">
             <div className="absolute left-[-10%] top-[-10%] h-40 w-40 rounded-full bg-sky-50/50 blur-2xl transition-transform group-hover:scale-110" />
             <div className="relative z-10">
@@ -200,6 +198,7 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* Feature 3: Balanced Teams */}
           <div className="group relative rounded-[2.5rem] bg-white p-9 shadow-md ring-1 ring-zinc-900/5 overflow-hidden transition-all duration-300 transform-3d hover:shadow-2xl hover:shadow-teal-100">
             <div className="absolute bottom-[-10%] left-[-10%] h-40 w-40 rounded-full bg-teal-50/50 blur-2xl transition-transform group-hover:scale-110" />
             <div className="relative z-10 flex h-full flex-col justify-between space-y-12">

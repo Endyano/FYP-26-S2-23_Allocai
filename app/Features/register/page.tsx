@@ -12,6 +12,7 @@ export default function RegisterPage() {
             <p className="text-sm text-slate-500">Start using Allocai in seconds.</p>
           </div>
 
+          {/* Form to create a new user */}
           <form className="grid gap-5">
             <input
               type="text"
@@ -38,6 +39,7 @@ export default function RegisterPage() {
             </button>
           </form>
 
+          {/* Link back to the login page */}
           <p className="text-center text-sm text-slate-500">
             Already have an account? <Link href="/Features/login" className="font-semibold text-slate-950">Log in</Link>
           </p>

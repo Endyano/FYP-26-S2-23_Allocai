@@ -10,6 +10,7 @@ export default function ForgotPasswordPage() {
             <p className="text-sm text-slate-500">Enter your email to receive reset instructions.</p>
           </div>
 
+          {/* Form to ask for a password reset link */}
           <form className="grid gap-5">
             <input
               type="email"
@@ -21,6 +22,7 @@ export default function ForgotPasswordPage() {
             </button>
           </form>
 
+          {/* Link back to the login page */}
           <p className="text-center text-sm text-slate-500">
             Remembered your password? <Link href="/Features/login" className="font-semibold text-slate-950">Log in</Link>
           </p>

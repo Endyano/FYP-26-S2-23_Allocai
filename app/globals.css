@@ -25,7 +25,9 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Custom animations for login page */
+/* -------------------------------------------
+   Custom shapes moving on the login page 
+------------------------------------------- */
 @keyframes blob {
   0% { transform: translate(0px, 0px) scale(1); }
   33% { transform: translate(30px, -50px) scale(1.1); }
@@ -37,14 +39,18 @@ body {
 .animation-delay-2000 { animation-delay: 2s; }
 .animation-delay-4000 { animation-delay: 4s; }
 
-/* --- 3D TILT EFFECT FOR FEATURE CARDS --- */
+/* -------------------------------------------
+   3D tilt effect when hovering over cards 
+------------------------------------------- */
 @layer components {
   .perspective-wrapper { perspective: 1500px; }
   .transform-3d { transform-style: preserve-3d; will-change: transform; }
   .transform-3d:hover { transform: rotateX(-5deg) rotateY(10deg); }
 }
 
-/* --- RE-SKINNED EXPANDING TASK SCANNER --- */
+/* -------------------------------------------
+   Task Scanner Box (Expands when hovered) 
+------------------------------------------- */
 .smart-task-container {
   position: relative; width: 340px; height: 90px;
   cursor: pointer; transition: height 0.6s cubic-bezier(0.19, 1, 0.22, 1);
@@ -75,7 +81,7 @@ body {
   opacity: 0; transform: translateY(-40px) scale(0.8); filter: blur(4px);
 }
 
-/* Clickable checklist grid */
+/* The checklist inside the scanner box */
 .todo-grid {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
   display: grid; grid-template-rows: repeat(4, 1fr); gap: 8px;
@@ -107,7 +113,7 @@ body {
 }
 .todo-checkbox:checked + .todo-label { text-decoration: line-through; color: #a8a29e; }
 
-/* Scanner line moving top-down inside the box */
+/* The blue laser scanner line */
 .scan-effect {
   position: absolute; left: 0; top: -10%; width: 100%; height: 3px;
   background: #7dd3fc; box-shadow: 0 0 15px 5px rgba(125, 211, 252, 0.5);
@@ -115,4 +121,31 @@ body {
 }
 .smart-task-container:hover .scan-effect {
   opacity: 0.8; top: 110%; transition: top 2.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
+/* -------------------------------------------
+   Animations for the Dashboard Greetings
+------------------------------------------- */
+@keyframes wave {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-20deg); }
+  75% { transform: rotate(20deg); }
+}
+
+@keyframes slideRight {
+  0% { opacity: 0; transform: translateX(-20px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+.animate-wave { 
+  animation: wave 2.5s ease-in-out infinite; 
+  transform-origin: 70% 70%; 
+  display: inline-block;
+}
+
+.animate-slide { 
+  animation: slideRight 0.5s ease-out forwards; 
+  opacity: 0; 
+  animation-delay: 0.15s; 
 }
