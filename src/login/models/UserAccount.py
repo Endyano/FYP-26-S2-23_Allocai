@@ -19,7 +19,7 @@ class UserAccount:
         # 1. Map incoming lowercase route parameters to explicit database strings
         role_mapping = {
             'manager': 'Manager',
-            'department': 'Dept Staff',
+            'department': 'Department Staff',
             'casual_staff': 'Casual Staff'
         }
         
