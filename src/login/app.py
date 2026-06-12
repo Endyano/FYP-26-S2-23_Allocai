@@ -343,6 +343,45 @@ def create_staff():
     return jsonify(result), status_code
 
 
+@app.route('/api/manager/staff/<staff_id>', methods=['PUT'])
+def update_staff(staff_id):
+    access_error = require_login('manager')
+    if access_error:
+        return access_error
+
+    data = request.get_json() or {}
+    manager = Manager()
+    result = manager.update_staff(
+        staff_id,
+        data.get('full_name'),
+        data.get('email'),
+        data.get('max_weekly_hours')
+    )
+    return jsonify(result), (200 if result['success'] else 400)
+
+
+@app.route('/api/manager/staff/<staff_id>/suspend', methods=['PATCH'])
+def suspend_staff(staff_id):
+    access_error = require_login('manager')
+    if access_error:
+        return access_error
+
+    manager = Manager()
+    result = manager.toggle_suspend(staff_id)
+    return jsonify(result), (200 if result['success'] else 400)
+
+
+@app.route('/api/manager/staff/<staff_id>', methods=['DELETE'])
+def delete_staff(staff_id):
+    access_error = require_login('manager')
+    if access_error:
+        return access_error
+
+    manager = Manager()
+    result = manager.delete_staff(staff_id)
+    return jsonify(result), (200 if result['success'] else 400)
+
+
 @app.route('/api/logout', methods=['POST', 'GET'])
 def api_logout():
     if not UserSession.is_logged_in():

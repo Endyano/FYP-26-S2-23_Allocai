@@ -20,11 +20,13 @@ class CasualStaff:
             cursor = connection.cursor(cursor_factory=RealDictCursor)
 
             query = """
-                SELECT 
+                SELECT
                     id,
                     full_name,
-                    email AS username,
-                    role
+                    email,
+                    role,
+                    is_suspended,
+                    max_weekly_hours
                 FROM public.profiles
                 WHERE role = 'Casual Staff'
                 ORDER BY full_name;

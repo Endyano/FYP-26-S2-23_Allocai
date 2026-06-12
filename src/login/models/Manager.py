@@ -141,6 +141,124 @@ class Manager:
             )
         )
 
+    def update_staff(self, staff_id, full_name, email, max_weekly_hours):
+        full_name = (full_name or "").strip()
+        email = (email or "").strip().lower()
+
+        if not full_name or not email:
+            return {"success": False, "message": "Full name and email are required."}
+        if not self.EMAIL_PATTERN.match(email):
+            return {"success": False, "message": "Please enter a valid email address."}
+
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+
+            cursor.execute(
+                "SELECT id FROM public.profiles WHERE LOWER(email) = %s AND id <> %s;",
+                (email, staff_id)
+            )
+            if cursor.fetchone():
+                return {"success": False, "message": "Email is already used by another account."}
+
+            cursor.execute(
+                """
+                UPDATE public.profiles
+                SET full_name = %s, email = %s, max_weekly_hours = %s
+                WHERE id = %s AND role = 'Casual Staff'
+                RETURNING id, full_name, email, role, is_suspended, max_weekly_hours;
+                """,
+                (full_name, email, max_weekly_hours or 16, staff_id)
+            )
+            updated = cursor.fetchone()
+            connection.commit()
+
+            if not updated:
+                return {"success": False, "message": "Staff member not found."}
+
+            return {"success": True, "message": "Staff updated successfully.", "profile": dict(updated)}
+
+        except Exception as error:
+            if connection:
+                connection.rollback()
+            print(f"Manager update_staff error: {error}")
+            return {"success": False, "message": "Failed to update staff."}
+
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
+    def toggle_suspend(self, staff_id):
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+
+            cursor.execute(
+                """
+                UPDATE public.profiles
+                SET is_suspended = NOT is_suspended
+                WHERE id = %s AND role = 'Casual Staff'
+                RETURNING id, is_suspended;
+                """,
+                (staff_id,)
+            )
+            updated = cursor.fetchone()
+            connection.commit()
+
+            if not updated:
+                return {"success": False, "message": "Staff member not found."}
+
+            return {"success": True, "is_suspended": updated["is_suspended"]}
+
+        except Exception as error:
+            if connection:
+                connection.rollback()
+            print(f"Manager toggle_suspend error: {error}")
+            return {"success": False, "message": "Failed to update suspension status."}
+
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
+    def delete_staff(self, staff_id):
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor()
+
+            cursor.execute(
+                "DELETE FROM public.task_allocations WHERE staff_id = %s;",
+                (staff_id,)
+            )
+            cursor.execute(
+                "DELETE FROM auth.users WHERE id = %s;",
+                (staff_id,)
+            )
+            connection.commit()
+
+            return {"success": True, "message": "Staff member deleted successfully."}
+
+        except Exception as error:
+            if connection:
+                connection.rollback()
+            print(f"Manager delete_staff error: {error}")
+            return {"success": False, "message": "Failed to delete staff member."}
+
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
     def get_stats(self):
         connection = None
         cursor = None
