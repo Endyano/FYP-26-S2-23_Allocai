@@ -223,6 +223,58 @@ def create_department_task():
     return department_tasks()
 
 
+@app.route('/api/department/tasks/<int:task_id>/cancel', methods=['PATCH'])
+def cancel_department_task(task_id):
+    access_error = require_login('department')
+    if access_error:
+        return access_error
+
+    task_allocation = TaskAllocation()
+    result = task_allocation.cancel_task(task_id, UserSession.get_user_id())
+    return jsonify(result), (200 if result['success'] else 400)
+
+
+@app.route('/api/department/tasks/<int:task_id>', methods=['DELETE'])
+def delete_department_task(task_id):
+    access_error = require_login('department')
+    if access_error:
+        return access_error
+
+    task_allocation = TaskAllocation()
+    result = task_allocation.delete_task(task_id, UserSession.get_user_id())
+    return jsonify(result), (200 if result['success'] else 400)
+
+
+@app.route('/api/department/staff', methods=['GET'])
+def department_view_staff():
+    access_error = require_login('department')
+    if access_error:
+        return access_error
+
+    casual_staff = CasualStaff()
+    return jsonify({
+        "success": True,
+        "staff": casual_staff.get_all_staff()
+    }), 200
+
+
+@app.route('/api/department/tasks/<int:task_id>/assign', methods=['PATCH'])
+def assign_staff_to_task(task_id):
+    access_error = require_login('department')
+    if access_error:
+        return access_error
+
+    data = request.get_json() or {}
+    staff_id = data.get('staff_id')
+
+    if not staff_id:
+        return jsonify({"success": False, "message": "staff_id is required."}), 400
+
+    task_allocation = TaskAllocation()
+    result = task_allocation.assign_staff(task_id, staff_id, UserSession.get_user_id())
+    return jsonify(result), (200 if result['success'] else 400)
+
+
 @app.route('/api/casual_staff/profile', methods=['GET', 'POST', 'PUT'])
 def casual_staff_profile():
     access_error = require_login('casual_staff')
@@ -260,6 +312,39 @@ def casual_staff_profile():
     status_code = 200 if result["success"] else 400
 
     return jsonify(result), status_code
+
+
+@app.route('/api/casual_staff/tasks', methods=['GET'])
+def casual_staff_tasks():
+    access_error = require_login('casual_staff')
+    if access_error:
+        return access_error
+
+    task_allocation = TaskAllocation()
+    result = task_allocation.get_all_tasks_by_staff(UserSession.get_user_id())
+    return jsonify(result), (200 if result['success'] else 500)
+
+
+@app.route('/api/casual_staff/tasks/<int:task_id>/complete', methods=['PATCH'])
+def complete_casual_task(task_id):
+    access_error = require_login('casual_staff')
+    if access_error:
+        return access_error
+
+    task_allocation = TaskAllocation()
+    result = task_allocation.complete_task(task_id, UserSession.get_user_id())
+    return jsonify(result), (200 if result['success'] else 400)
+
+
+@app.route('/api/casual_staff/tasks/<int:task_id>/cancel', methods=['PATCH'])
+def cancel_casual_task(task_id):
+    access_error = require_login('casual_staff')
+    if access_error:
+        return access_error
+
+    task_allocation = TaskAllocation()
+    result = task_allocation.cancel_task_by_staff(task_id, UserSession.get_user_id())
+    return jsonify(result), (200 if result['success'] else 400)
 
 
 @app.route('/api/casual_staff/schedule', methods=['GET'])

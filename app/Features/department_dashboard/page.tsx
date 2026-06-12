@@ -7,7 +7,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 interface Task {
   id: number;
   task_name: string;
+  description: string;
+  priority: string;
   status: string;
+  task_date: string;
+  start_time: string;
+  end_time: string;
+  staff_id: string | null;
+  assigned_staff_name: string | null;
 }
 
 interface FormState {
@@ -30,32 +37,59 @@ const emptyForm: FormState = {
   end_time: '',
 };
 
+const STATUS_STYLES: Record<string, string> = {
+  Pending:   'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
+  Approved:  'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
+  Completed: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/20',
+  Cancelled: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20',
+};
+
+const DOT_STYLES: Record<string, string> = {
+  Pending:   'bg-amber-500',
+  Approved:  'bg-emerald-500',
+  Completed: 'bg-sky-500',
+  Cancelled: 'bg-rose-500',
+};
+
 export default function ManageTasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [loadError, setLoadError] = useState('');
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/department/tasks`, { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setTasks(data.tasks || []);
-      })
-      .catch(() => {});
+    fetchTasks();
   }, []);
+
+  async function fetchTasks() {
+    setLoadError('');
+    try {
+      const res = await fetch(`${API_URL}/api/department/tasks`, { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setTasks(data.tasks || []);
+      } else {
+        setLoadError(data.message || 'Could not load tasks. Make sure you are logged in.');
+      }
+    } catch {
+      setLoadError('Could not reach the server. Make sure the backend is running.');
+    }
+  }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
-  async function handleSubmit(e: { preventDefault(): void }) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setSubmitError('');
     setSubmitSuccess('');
-
     try {
       const res = await fetch(`${API_URL}/api/department/tasks`, {
         method: 'POST',
@@ -64,7 +98,6 @@ export default function ManageTasksPage() {
         body: JSON.stringify(form),
       });
       const data = await res.json();
-
       if (data.success) {
         setTasks(prev => [data.task, ...prev]);
         setForm(emptyForm);
@@ -79,12 +112,62 @@ export default function ManageTasksPage() {
     }
   }
 
+  async function cancelTask(taskId: number) {
+    setCancellingId(taskId);
+    try {
+      const res = await fetch(`${API_URL}/api/department/tasks/${taskId}/cancel`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'Cancelled' } : t));
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setCancellingId(null);
+    }
+  }
+
+  async function deleteTask(taskId: number) {
+    setDeletingId(taskId);
+    try {
+      const res = await fetch(`${API_URL}/api/department/tasks/${taskId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTasks(prev => prev.filter(t => t.id !== taskId));
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  }
+
+  function formatTime(t: string) {
+    if (!t) return '—';
+    const [h, m] = t.split(':');
+    const hour = parseInt(h);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    return `${hour % 12 || 12}:${m} ${ampm}`;
+  }
+
+  function formatDate(d: string) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
   return (
     <div className="space-y-8 animate-[fadeIn_0.3s_ease-out]">
 
-      {/* FORM CREATE TASK */}
+      {/* CREATE TASK FORM */}
       <div className="rounded-2xl bg-white p-8 shadow-sm border border-slate-200 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
+        <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
 
         <div className="mb-6 border-b border-slate-100 pb-4">
           <h3 className="text-xl font-bold text-slate-900">Create / Edit Task Request</h3>
@@ -106,7 +189,7 @@ export default function ManageTasksPage() {
 
           <div className="space-y-2 md:col-span-2">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Description</label>
-            <textarea name="description" value={form.description} onChange={handleChange} rows={3} placeholder="Describe the task requirements..." className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none"></textarea>
+            <textarea name="description" value={form.description} onChange={handleChange} rows={3} placeholder="Describe the task requirements..." className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none" />
           </div>
 
           <div className="space-y-2">
@@ -118,14 +201,14 @@ export default function ManageTasksPage() {
                 <option>High</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>
               </div>
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff ID</label>
-            <input name="staff_id" value={form.staff_id} onChange={handleChange} type="text" placeholder="e.g. staff UUID" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all" />
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff ID <span className="normal-case font-normal text-slate-400">(optional)</span></label>
+            <input name="staff_id" value={form.staff_id} onChange={handleChange} type="text" placeholder="Leave blank to assign later" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all" />
           </div>
 
           <div className="space-y-2">
@@ -144,11 +227,11 @@ export default function ManageTasksPage() {
           </div>
 
           <div className="md:col-span-2 pt-2 flex gap-3">
-            <button type="submit" disabled={submitting} className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 shadow-sm active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed">
+            <button type="submit" disabled={submitting} className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 shadow-sm active:scale-95 disabled:opacity-60">
               {submitting ? 'Saving...' : 'Save Task'}
             </button>
             <button type="button" onClick={() => { setForm(emptyForm); setSubmitError(''); setSubmitSuccess(''); }} className="rounded-xl bg-white border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">
-              Cancel Changes
+              Clear
             </button>
           </div>
         </form>
@@ -156,42 +239,69 @@ export default function ManageTasksPage() {
 
       {/* MANAGE EXISTING TASKS */}
       <div className="rounded-2xl bg-white shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 border-b border-slate-200 bg-slate-50/50">
+        <div className="p-6 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">Manage Existing Tasks</h2>
+          <span className="text-xs font-semibold text-slate-500">{tasks.length} total</span>
         </div>
+
+        {loadError && (
+          <div className="px-6 py-4 bg-rose-50 border-b border-rose-200 text-sm text-rose-700 font-medium">{loadError}</div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4 font-semibold">Task ID</th>
-                <th className="px-6 py-4 font-semibold">Title</th>
+                <th className="px-6 py-4 font-semibold">Task</th>
+                <th className="px-6 py-4 font-semibold">Date</th>
+                <th className="px-6 py-4 font-semibold">Time</th>
+                <th className="px-6 py-4 font-semibold">Assigned To</th>
+                <th className="px-6 py-4 font-semibold">Priority</th>
                 <th className="px-6 py-4 font-semibold">Status</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {tasks.length === 0 ? (
+              {tasks.length === 0 && !loadError ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-10 text-center text-slate-400 font-medium">No tasks yet.</td>
+                  <td colSpan={7} className="px-6 py-10 text-center text-slate-400 font-medium">No tasks yet. Create one above.</td>
                 </tr>
               ) : tasks.map(task => (
                 <tr key={task.id} className="transition-colors hover:bg-slate-50 group">
-                  <td className="px-6 py-4 font-medium text-slate-500">#{task.id}</td>
-                  <td className="px-6 py-4 font-medium text-slate-900">{task.task_name}</td>
+                  <td className="px-6 py-4 font-medium text-slate-900 max-w-[180px] truncate">{task.task_name}</td>
+                  <td className="px-6 py-4 text-slate-600">{formatDate(task.task_date)}</td>
+                  <td className="px-6 py-4 text-slate-600">{formatTime(task.start_time)} – {formatTime(task.end_time)}</td>
+                  <td className="px-6 py-4 text-slate-600">{task.assigned_staff_name || <span className="text-slate-400 italic">Unassigned</span>}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      task.status === 'Completed'
-                        ? 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/20'
-                        : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
-                    }`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${task.status === 'Completed' ? 'bg-sky-500' : 'bg-emerald-500'}`}></span>
-                      {task.status === 'Completed' ? 'Completed' : task.status}
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      task.priority === 'High' ? 'bg-rose-50 text-rose-700' :
+                      task.priority === 'Medium' ? 'bg-amber-50 text-amber-700' :
+                      'bg-slate-100 text-slate-600'
+                    }`}>{task.priority}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[task.status] || 'bg-slate-100 text-slate-600'}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${DOT_STYLES[task.status] || 'bg-slate-400'}`} />
+                      {task.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <button className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm transition-all">Cancel</button>
-                      <button className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-200 shadow-sm transition-all">Delete</button>
+                      {task.status !== 'Cancelled' && task.status !== 'Completed' && (
+                        <button
+                          onClick={() => cancelTask(task.id)}
+                          disabled={cancellingId === task.id}
+                          className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-50 hover:border-amber-200 shadow-sm transition-all disabled:opacity-50"
+                        >
+                          {cancellingId === task.id ? '...' : 'Cancel'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setConfirmDeleteId(task.id)}
+                        className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-200 shadow-sm transition-all"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -200,6 +310,31 @@ export default function ManageTasksPage() {
           </table>
         </div>
       </div>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white px-10 py-10 rounded-3xl shadow-2xl w-full max-w-sm">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 mb-6">
+              <svg className="w-7 h-7 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2 text-center">Delete Task?</h3>
+            <p className="text-center text-sm text-slate-500 mb-8">This will permanently remove the task record.</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => deleteTask(confirmDeleteId)}
+                disabled={deletingId === confirmDeleteId}
+                className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
+              >
+                {deletingId === confirmDeleteId ? 'Deleting...' : 'Yes, delete'}
+              </button>
+              <button onClick={() => setConfirmDeleteId(null)} className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold py-3 rounded-xl transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

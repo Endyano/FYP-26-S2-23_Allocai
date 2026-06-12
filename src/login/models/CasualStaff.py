@@ -26,7 +26,8 @@ class CasualStaff:
                     email,
                     role,
                     is_suspended,
-                    max_weekly_hours
+                    max_weekly_hours,
+                    allocated_hours
                 FROM public.profiles
                 WHERE role = 'Casual Staff'
                 ORDER BY full_name;

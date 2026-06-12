@@ -75,10 +75,13 @@ class TaskAllocation:
             cursor = connection.cursor(cursor_factory=RealDictCursor)
 
             query = """
-                SELECT *
-                FROM public.task_allocations
-                WHERE department_id = %s
-                ORDER BY id DESC;
+                SELECT
+                    ta.*,
+                    p.full_name AS assigned_staff_name
+                FROM public.task_allocations ta
+                LEFT JOIN public.profiles p ON p.id = ta.staff_id
+                WHERE ta.department_id = %s
+                ORDER BY ta.id DESC;
             """
 
             cursor.execute(query, (department_id,))
@@ -88,6 +91,91 @@ class TaskAllocation:
             print(f"Get department task allocations error: {error}")
             return []
 
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
+    def assign_staff(self, task_id, staff_id, department_id):
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                UPDATE public.task_allocations
+                SET staff_id = %s, status = 'Approved'
+                WHERE id = %s AND department_id = %s
+                RETURNING id, staff_id, task_name, status;
+                """,
+                (staff_id, task_id, department_id)
+            )
+            updated = cursor.fetchone()
+            connection.commit()
+            if not updated:
+                return {"success": False, "message": "Task not found."}
+            return {"success": True, "task": dict(updated)}
+        except Exception as error:
+            if connection:
+                connection.rollback()
+            print(f"Assign staff error: {error}")
+            return {"success": False, "message": "Failed to assign staff."}
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
+    def cancel_task(self, task_id, department_id):
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                UPDATE public.task_allocations
+                SET status = 'Cancelled'
+                WHERE id = %s AND department_id = %s
+                RETURNING id, status;
+                """,
+                (task_id, department_id)
+            )
+            updated = cursor.fetchone()
+            connection.commit()
+            if not updated:
+                return {"success": False, "message": "Task not found."}
+            return {"success": True, "task": dict(updated)}
+        except Exception as error:
+            if connection:
+                connection.rollback()
+            print(f"Cancel task error: {error}")
+            return {"success": False, "message": "Failed to cancel task."}
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
+    def delete_task(self, task_id, department_id):
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor()
+            cursor.execute(
+                "DELETE FROM public.task_allocations WHERE id = %s AND department_id = %s;",
+                (task_id, department_id)
+            )
+            connection.commit()
+            return {"success": True, "message": "Task deleted."}
+        except Exception as error:
+            if connection:
+                connection.rollback()
+            print(f"Delete task error: {error}")
+            return {"success": False, "message": "Failed to delete task."}
         finally:
             if cursor:
                 cursor.close()
@@ -168,6 +256,96 @@ class TaskAllocation:
                 "message": "System failed to create the task request."
             }
 
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
+    def get_all_tasks_by_staff(self, staff_id):
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                SELECT
+                    ta.*,
+                    p.full_name AS department_name_label
+                FROM public.task_allocations ta
+                LEFT JOIN public.profiles p ON p.id = ta.department_id
+                WHERE ta.staff_id = %s
+                ORDER BY ta.task_date DESC, ta.start_time DESC;
+                """,
+                (staff_id,)
+            )
+            return {"success": True, "tasks": cursor.fetchall()}
+        except Exception as error:
+            print(f"Get all staff tasks error: {error}")
+            return {"success": False, "message": "Failed to retrieve tasks."}
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
+    def complete_task(self, task_id, staff_id):
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                UPDATE public.task_allocations
+                SET status = 'Completed'
+                WHERE id = %s AND staff_id = %s AND status = 'Approved'
+                RETURNING id, status;
+                """,
+                (task_id, staff_id)
+            )
+            updated = cursor.fetchone()
+            connection.commit()
+            if not updated:
+                return {"success": False, "message": "Task not found or not in Approved status."}
+            return {"success": True, "task": dict(updated)}
+        except Exception as error:
+            if connection:
+                connection.rollback()
+            print(f"Complete task error: {error}")
+            return {"success": False, "message": "Failed to complete task."}
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
+    def cancel_task_by_staff(self, task_id, staff_id):
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                UPDATE public.task_allocations
+                SET status = 'Cancelled'
+                WHERE id = %s AND staff_id = %s AND status = 'Approved'
+                RETURNING id, status;
+                """,
+                (task_id, staff_id)
+            )
+            updated = cursor.fetchone()
+            connection.commit()
+            if not updated:
+                return {"success": False, "message": "Task not found or already completed/cancelled."}
+            return {"success": True, "task": dict(updated)}
+        except Exception as error:
+            if connection:
+                connection.rollback()
+            print(f"Cancel task by staff error: {error}")
+            return {"success": False, "message": "Failed to cancel task."}
         finally:
             if cursor:
                 cursor.close()
