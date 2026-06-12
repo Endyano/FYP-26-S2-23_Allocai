@@ -7,6 +7,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 export default function DashboardPage() {
   const [totalStaff, setTotalStaff] = useState<number | null>(null);
   const [pendingTasks, setPendingTasks] = useState<number | null>(null);
+  const [totalDepartments, setTotalDepartments] = useState<number | null>(null);
   const [statsError, setStatsError] = useState(false);
 
   useEffect(() => {
@@ -16,6 +17,7 @@ export default function DashboardPage() {
         if (data.success) {
           setTotalStaff(data.total_staff);
           setPendingTasks(data.pending_tasks);
+          setTotalDepartments(data.total_departments);
         } else {
           setStatsError(true);
         }
@@ -25,6 +27,7 @@ export default function DashboardPage() {
 
   const staffRingValue = totalStaff !== null ? Math.min((totalStaff / 200) * 100, 100) : 0;
   const pendingRingValue = pendingTasks !== null ? Math.min((pendingTasks / 50) * 100, 100) : 0;
+  const deptRingValue = totalDepartments !== null ? Math.min((totalDepartments / 10) * 100, 100) : 0;
 
   return (
     <div className="space-y-8 animate-[fadeIn_0.3s_ease-out]">
@@ -54,11 +57,13 @@ export default function DashboardPage() {
         <div className="relative rounded-2xl bg-white p-6 shadow-sm border border-slate-200 border-t-4 border-t-emerald-500 overflow-hidden transition-all hover:shadow-md hover:-translate-y-1">
           <div className="relative z-10">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Departments</h3>
-            <p className="text-4xl font-black text-slate-900 mt-3">8 <span className="text-sm font-medium text-slate-400">/ 10</span></p>
+            <p className="text-4xl font-black text-slate-900 mt-3">
+              {totalDepartments !== null ? totalDepartments : <span className="text-slate-300 animate-pulse">—</span>}
+            </p>
           </div>
           <svg className="absolute -right-4 -bottom-4 w-32 h-32 text-emerald-50 opacity-50" viewBox="0 0 36 36">
             <path className="text-slate-100" strokeDasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3" />
-            <path className="text-emerald-400 animate-ring" strokeDasharray="80, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+            <path className="text-emerald-400 animate-ring" strokeDasharray={`${deptRingValue}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
           </svg>
         </div>
 

@@ -259,6 +259,66 @@ class Manager:
             if connection:
                 connection.close()
 
+    def get_monthly_report(self, year, month):
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+
+            cursor.execute(
+                """
+                SELECT
+                    p.id,
+                    p.full_name,
+                    p.max_weekly_hours,
+                    COALESCE(
+                        SUM(
+                            EXTRACT(EPOCH FROM (ta.end_time - ta.start_time)) / 3600
+                        ), 0
+                    ) AS monthly_hours
+                FROM public.profiles p
+                LEFT JOIN public.task_allocations ta
+                    ON ta.staff_id = p.id
+                    AND EXTRACT(YEAR  FROM ta.task_date) = %s
+                    AND EXTRACT(MONTH FROM ta.task_date) = %s
+                    AND ta.status != 'Cancelled'
+                WHERE p.role = 'Casual Staff'
+                GROUP BY p.id, p.full_name, p.max_weekly_hours
+                ORDER BY p.full_name;
+                """,
+                (year, month)
+            )
+            rows = cursor.fetchall()
+
+            report = []
+            for row in rows:
+                monthly_limit = row['max_weekly_hours'] * 4
+                monthly_hours = float(row['monthly_hours'])
+                over_limit = monthly_hours > monthly_limit
+                exceed_pct = round(((monthly_hours - monthly_limit) / monthly_limit) * 100) if over_limit else 0
+
+                report.append({
+                    'id': str(row['id']),
+                    'full_name': row['full_name'],
+                    'monthly_hours': round(monthly_hours, 1),
+                    'monthly_limit': monthly_limit,
+                    'over_limit': over_limit,
+                    'exceed_pct': exceed_pct,
+                })
+
+            return {'success': True, 'report': report}
+
+        except Exception as error:
+            print(f"Manager get_monthly_report error: {error}")
+            return {'success': False, 'message': 'Failed to retrieve report.'}
+
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
     def get_stats(self):
         connection = None
         cursor = None
@@ -272,10 +332,14 @@ class Manager:
             cursor.execute("SELECT COUNT(*) AS total FROM public.task_allocations WHERE status = 'Pending';")
             pending_tasks = cursor.fetchone()['total']
 
+            cursor.execute("SELECT COUNT(DISTINCT department_name) AS total FROM public.profiles WHERE role = 'Department Staff' AND department_name IS NOT NULL;")
+            total_departments = cursor.fetchone()['total']
+
             return {
                 "success": True,
                 "total_staff": int(total_staff),
                 "pending_tasks": int(pending_tasks),
+                "total_departments": int(total_departments),
             }
 
         except Exception as error:

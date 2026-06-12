@@ -309,6 +309,23 @@ def manager_view_staff():
     }), 200
 
 
+@app.route('/api/manager/reports', methods=['GET'])
+def manager_reports():
+    access_error = require_login('manager')
+    if access_error:
+        return access_error
+
+    try:
+        year  = int(request.args.get('year',  datetime.datetime.now().year))
+        month = int(request.args.get('month', datetime.datetime.now().month))
+    except ValueError:
+        return jsonify({'success': False, 'message': 'Invalid year or month.'}), 400
+
+    manager = Manager()
+    result = manager.get_monthly_report(year, month)
+    return jsonify(result), (200 if result['success'] else 500)
+
+
 @app.route('/api/manager/stats', methods=['GET'])
 def manager_stats():
     access_error = require_login('manager')
