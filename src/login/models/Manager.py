@@ -319,6 +319,102 @@ class Manager:
             if connection:
                 connection.close()
 
+    def get_all_tasks(self):
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor.execute("""
+                SELECT
+                    ta.id,
+                    ta.task_name,
+                    ta.task_date,
+                    ta.priority,
+                    ta.status,
+                    dept.full_name  AS department_name,
+                    dept.department_name AS department_label,
+                    staff.full_name AS staff_name
+                FROM public.task_allocations ta
+                LEFT JOIN public.profiles dept  ON dept.id  = ta.department_id
+                LEFT JOIN public.profiles staff ON staff.id = ta.staff_id
+                ORDER BY ta.task_date DESC, ta.id DESC
+                LIMIT 50;
+            """)
+            tasks = cursor.fetchall()
+            return {"success": True, "tasks": [dict(t) for t in tasks]}
+        except Exception as error:
+            print(f"Manager get_all_tasks error: {error}")
+            return {"success": False, "message": "Failed to load tasks."}
+        finally:
+            if cursor: cursor.close()
+            if connection: connection.close()
+
+    def get_disputes(self):
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor.execute("""
+                SELECT
+                    d.id,
+                    d.reason,
+                    d.claimed_hours,
+                    d.status,
+                    d.manager_note,
+                    d.created_at,
+                    p.full_name AS staff_name,
+                    ta.task_name,
+                    ta.task_date,
+                    ta.start_time,
+                    ta.end_time
+                FROM public.disputes d
+                JOIN public.profiles p ON p.id = d.staff_id
+                JOIN public.task_allocations ta ON ta.id = d.task_id
+                ORDER BY
+                    CASE WHEN d.status = 'Pending' THEN 0 ELSE 1 END,
+                    d.created_at DESC;
+            """)
+            disputes = cursor.fetchall()
+            return {"success": True, "disputes": [dict(d) for d in disputes]}
+        except Exception as error:
+            print(f"Manager get_disputes error: {error}")
+            return {"success": False, "message": "Failed to load disputes."}
+        finally:
+            if cursor: cursor.close()
+            if connection: connection.close()
+
+    def resolve_dispute(self, dispute_id, action, manager_note):
+        if action not in ('Approved', 'Rejected'):
+            return {"success": False, "message": "Invalid action."}
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                UPDATE public.disputes
+                SET status = %s, manager_note = %s
+                WHERE id = %s AND status = 'Pending'
+                RETURNING id, status;
+                """,
+                (action, manager_note or '', dispute_id)
+            )
+            updated = cursor.fetchone()
+            connection.commit()
+            if not updated:
+                return {"success": False, "message": "Dispute not found or already resolved."}
+            return {"success": True, "status": updated["status"]}
+        except Exception as error:
+            if connection: connection.rollback()
+            print(f"Manager resolve_dispute error: {error}")
+            return {"success": False, "message": "Failed to resolve dispute."}
+        finally:
+            if cursor: cursor.close()
+            if connection: connection.close()
+
     def get_stats(self):
         connection = None
         cursor = None

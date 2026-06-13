@@ -394,6 +394,17 @@ def manager_view_staff():
     }), 200
 
 
+@app.route('/api/manager/tasks', methods=['GET'])
+def manager_all_tasks():
+    access_error = require_login('manager')
+    if access_error:
+        return access_error
+
+    manager = Manager()
+    result = manager.get_all_tasks()
+    return jsonify(result), (200 if result['success'] else 500)
+
+
 @app.route('/api/manager/reports', methods=['GET'])
 def manager_reports():
     access_error = require_login('manager')
@@ -482,6 +493,45 @@ def delete_staff(staff_id):
     manager = Manager()
     result = manager.delete_staff(staff_id)
     return jsonify(result), (200 if result['success'] else 400)
+
+
+@app.route('/api/manager/disputes', methods=['GET'])
+def manager_get_disputes():
+    access_error = require_login('manager')
+    if access_error:
+        return access_error
+    manager = Manager()
+    result = manager.get_disputes()
+    return jsonify(result), (200 if result['success'] else 500)
+
+
+@app.route('/api/manager/disputes/<int:dispute_id>/resolve', methods=['PATCH'])
+def manager_resolve_dispute(dispute_id):
+    access_error = require_login('manager')
+    if access_error:
+        return access_error
+    data = request.get_json() or {}
+    action = data.get('action')
+    manager_note = data.get('manager_note', '')
+    manager = Manager()
+    result = manager.resolve_dispute(dispute_id, action, manager_note)
+    return jsonify(result), (200 if result['success'] else 400)
+
+
+@app.route('/api/casual_staff/tasks/<int:task_id>/dispute', methods=['POST'])
+def file_dispute(task_id):
+    access_error = require_login('casual_staff')
+    if access_error:
+        return access_error
+    data = request.get_json() or {}
+    task_allocation = TaskAllocation()
+    result = task_allocation.file_dispute(
+        task_id,
+        UserSession.get_user_id(),
+        data.get('reason'),
+        data.get('claimed_hours')
+    )
+    return jsonify(result), (201 if result['success'] else 400)
 
 
 @app.route('/api/logout', methods=['POST', 'GET'])

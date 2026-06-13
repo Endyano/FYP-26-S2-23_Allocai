@@ -55,11 +55,14 @@ class CasualStaff:
             cursor = connection.cursor(cursor_factory=RealDictCursor)
 
             query = """
-                SELECT 
+                SELECT
                     id,
                     full_name,
                     email AS username,
-                    role
+                    role,
+                    max_weekly_hours,
+                    allocated_hours,
+                    is_suspended
                 FROM public.profiles
                 WHERE id = %s
                 AND role = 'Casual Staff';

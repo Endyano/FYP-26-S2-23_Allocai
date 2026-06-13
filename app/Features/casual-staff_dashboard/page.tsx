@@ -32,10 +32,20 @@ function calcHours(start: string, end: string) {
 export default function CasualDashboard() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [hoursUsed, setHoursUsed] = useState<number | null>(null);
+  const [maxWeeklyHours, setMaxWeeklyHours] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    fetch(`${API_URL}/api/casual_staff/profile`, { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.profile?.max_weekly_hours) {
+          setMaxWeeklyHours(data.profile.max_weekly_hours);
+        }
+      })
+      .catch(() => {});
+
     fetch(`${API_URL}/api/casual_staff/schedule`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
@@ -54,10 +64,10 @@ export default function CasualDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  const hoursLimit = 50;
+  const hoursLimit = maxWeeklyHours ?? 16;
   const dashArrayValue = hoursUsed !== null ? Math.min((hoursUsed / hoursLimit) * 100, 100) : 0;
   const completedCount = schedule.filter(s => s.status === 'Completed').length;
-  const upcomingCount = schedule.filter(s => s.status === 'Pending' || s.status === 'Upcoming').length;
+  const upcomingCount = schedule.filter(s => s.status === 'Approved').length;
 
   return (
     <div className="space-y-8 animate-[fadeIn_0.3s_ease-out]">
@@ -74,7 +84,7 @@ export default function CasualDashboard() {
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hours This Week</h3>
             <p className="text-4xl font-black text-slate-900 mt-3">
               {hoursUsed !== null ? hoursUsed : <span className="text-slate-300 animate-pulse">—</span>}
-              <span className="text-sm font-medium text-slate-400"> / {hoursLimit}h</span>
+              <span className="text-sm font-medium text-slate-400"> / {maxWeeklyHours ?? '—'}h</span>
             </p>
           </div>
           <svg className="absolute -right-4 -bottom-4 w-32 h-32 text-indigo-50 opacity-50" viewBox="0 0 36 36">

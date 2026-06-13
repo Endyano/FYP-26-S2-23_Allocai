@@ -352,6 +352,39 @@ class TaskAllocation:
             if connection:
                 connection.close()
 
+    def file_dispute(self, task_id, staff_id, reason, claimed_hours):
+        if not reason or not reason.strip():
+            return {"success": False, "message": "Reason is required."}
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                "SELECT id FROM public.disputes WHERE task_id = %s AND staff_id = %s AND status = 'Pending';",
+                (task_id, staff_id)
+            )
+            if cursor.fetchone():
+                return {"success": False, "message": "A pending dispute already exists for this task."}
+            cursor.execute(
+                """
+                INSERT INTO public.disputes (task_id, staff_id, reason, claimed_hours)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id;
+                """,
+                (task_id, staff_id, reason.strip(), claimed_hours or None)
+            )
+            new_id = cursor.fetchone()['id']
+            connection.commit()
+            return {"success": True, "dispute_id": new_id}
+        except Exception as error:
+            if connection: connection.rollback()
+            print(f"File dispute error: {error}")
+            return {"success": False, "message": "Failed to file dispute."}
+        finally:
+            if cursor: cursor.close()
+            if connection: connection.close()
+
     def get_upcoming_schedule_by_staff(self, staff_id):
         connection = None
         cursor = None

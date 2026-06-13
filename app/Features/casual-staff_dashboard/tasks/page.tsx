@@ -57,6 +57,13 @@ export default function TasksPage() {
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [confirmCancel, setConfirmCancel] = useState<Task | null>(null);
 
+  const [disputeTask, setDisputeTask] = useState<Task | null>(null);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [disputeHours, setDisputeHours] = useState('');
+  const [disputeSubmitting, setDisputeSubmitting] = useState(false);
+  const [disputeError, setDisputeError] = useState('');
+  const [disputeSuccess, setDisputeSuccess] = useState<number | null>(null);
+
   useEffect(() => {
     fetchTasks();
   }, []);
@@ -116,6 +123,47 @@ export default function TasksPage() {
     }
   }
 
+  async function submitDispute() {
+    if (!disputeTask) return;
+    if (!disputeReason.trim()) {
+      setDisputeError('Please enter a reason for the dispute.');
+      return;
+    }
+    setDisputeSubmitting(true);
+    setDisputeError('');
+    try {
+      const res = await fetch(`${API_URL}/api/casual_staff/tasks/${disputeTask.id}/dispute`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: disputeReason.trim(),
+          claimed_hours: disputeHours ? parseFloat(disputeHours) : null,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDisputeSuccess(disputeTask.id);
+        setDisputeTask(null);
+        setDisputeReason('');
+        setDisputeHours('');
+      } else {
+        setDisputeError(data.message || 'Failed to submit dispute.');
+      }
+    } catch {
+      setDisputeError('Could not reach the server.');
+    } finally {
+      setDisputeSubmitting(false);
+    }
+  }
+
+  function openDisputeModal(task: Task) {
+    setDisputeTask(task);
+    setDisputeReason('');
+    setDisputeHours('');
+    setDisputeError('');
+  }
+
   const filtered = tasks.filter(t => {
     const matchesSearch = t.task_name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = activeFilter === 'All' || t.status === activeFilter;
@@ -164,6 +212,13 @@ export default function TasksPage() {
 
       {error && (
         <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700 font-medium">{error}</div>
+      )}
+
+      {disputeSuccess !== null && (
+        <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 font-medium flex items-center justify-between">
+          <span>Dispute submitted successfully. The manager will review it shortly.</span>
+          <button onClick={() => setDisputeSuccess(null)} className="ml-4 text-emerald-500 hover:text-emerald-700">✕</button>
+        </div>
       )}
 
       {/* Tasks table */}
@@ -239,7 +294,20 @@ export default function TasksPage() {
                         </div>
                       )}
                       {task.status === 'Completed' && (
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Done</span>
+                        <div className="flex justify-end gap-2 items-center">
+                          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Done</span>
+                          {disputeSuccess !== task.id && (
+                            <button
+                              onClick={() => openDisputeModal(task)}
+                              className="rounded-md bg-white border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 shadow-sm transition-all"
+                            >
+                              Dispute
+                            </button>
+                          )}
+                          {disputeSuccess === task.id && (
+                            <span className="text-xs font-semibold text-emerald-600">Disputed</span>
+                          )}
+                        </div>
                       )}
                       {task.status === 'Cancelled' && (
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cancelled</span>
@@ -278,6 +346,68 @@ export default function TasksPage() {
                 className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold py-3 rounded-xl transition-colors"
               >
                 Go back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dispute modal */}
+      {disputeTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white px-8 py-8 rounded-3xl shadow-2xl w-full max-w-md">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 mb-5">
+              <svg className="w-6 h-6 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-1 text-center">Raise a Dispute</h3>
+            <p className="text-center text-sm text-slate-500 mb-6">
+              <span className="font-semibold text-slate-700">{disputeTask.task_name}</span>
+              {' · '}{calcHours(disputeTask.start_time, disputeTask.end_time)}h recorded
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Reason for dispute <span className="text-rose-500">*</span></label>
+                <textarea
+                  value={disputeReason}
+                  onChange={e => setDisputeReason(e.target.value)}
+                  placeholder="Describe the issue with the recorded hours or task details..."
+                  rows={3}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Claimed hours <span className="text-slate-400 font-normal">(optional)</span></label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={disputeHours}
+                  onChange={e => setDisputeHours(e.target.value)}
+                  placeholder="e.g. 4.5"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                />
+              </div>
+            </div>
+
+            {disputeError && (
+              <p className="mt-4 text-sm text-rose-600 font-medium">{disputeError}</p>
+            )}
+
+            <div className="flex flex-col gap-3 mt-6">
+              <button
+                onClick={submitDispute}
+                disabled={disputeSubmitting}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
+              >
+                {disputeSubmitting ? 'Submitting...' : 'Submit Dispute'}
+              </button>
+              <button
+                onClick={() => setDisputeTask(null)}
+                disabled={disputeSubmitting}
+                className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold py-3 rounded-xl transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>
