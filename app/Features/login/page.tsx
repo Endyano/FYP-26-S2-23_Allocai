@@ -53,7 +53,7 @@ export default function LoginPage() {
 
       if (response.ok && data.success) {
         // If successful, save the user's name and send them to the dashboard
-        localStorage.setItem('allocai_user', email.split('@')[0]);
+        localStorage.setItem('allocai_user', data.full_name || email.split('@')[0]);
         localStorage.setItem('allocai_route', data.redirect_to);
         router.push(data.redirect_to);
       } else {

@@ -125,6 +125,7 @@ def login():
         "success": True,
         "message": "Login successful",
         "role": user['role'],
+        "full_name": user.get('full_name', ''),
         "redirect_to": redirect_to
     }), 200
 

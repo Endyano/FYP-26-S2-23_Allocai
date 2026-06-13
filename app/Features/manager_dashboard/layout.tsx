@@ -18,8 +18,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
     if (!savedUser) {
       router.push('/Features/login');
     } else {
-      const cleanName = savedUser.replace(/[._]/g, ' ');
-      setUserName(cleanName);
+      setUserName(savedUser);
 
       const hour = new Date().getHours();
       if (hour < 12) setGreeting('Good morning');

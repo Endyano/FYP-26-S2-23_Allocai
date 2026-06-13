@@ -17,7 +17,7 @@ export default function DepartmentLayout({ children }: { children: React.ReactNo
     if (!savedUser) {
       router.push('/Features/login');
     } else {
-      setUserName(savedUser.replace(/[._]/g, ' '));
+      setUserName(savedUser);
       const hour = new Date().getHours();
       if (hour < 12) setGreeting('Good morning');
       else if (hour < 18) setGreeting('Good afternoon');
