@@ -62,21 +62,13 @@ export default function HomePage() {
             ) : (
               /* If nobody is logged in, show the regular Log In buttons */
               <>
-                <Link 
-                  href="/Features/login" 
+                <Link
+                  href="/Features/login"
                   className="bg-zinc-900 text-white border border-zinc-700 border-b-[4px] font-semibold overflow-hidden relative px-6 py-2 rounded-full hover:bg-zinc-800 hover:border-t-[4px] hover:border-b active:opacity-75 outline-none duration-300 group backdrop-blur-sm"
                 >
                   <span className="bg-white shadow-white absolute -top-[150%] left-0 inline-flex w-80 h-[5px] rounded-md opacity-20 group-hover:top-[150%] duration-500 shadow-[0_0_15px_15px_rgba(255,255,255,0.2)]"></span>
                   Log in
                 </Link>
-
-                <a 
-                  href="#" 
-                  className="bg-zinc-900 text-white border border-zinc-700 border-b-[4px] font-semibold overflow-hidden relative px-6 py-2 rounded-full hover:bg-zinc-800 hover:border-t-[4px] hover:border-b active:opacity-75 outline-none duration-300 group backdrop-blur-sm"
-                >
-                  <span className="bg-white shadow-white absolute -top-[150%] left-0 inline-flex w-80 h-[5px] rounded-md opacity-20 group-hover:top-[150%] duration-500 shadow-[0_0_15px_15px_rgba(255,255,255,0.2)]"></span>
-                  Start for free
-                </a>
               </>
             )}
 

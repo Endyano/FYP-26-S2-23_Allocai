@@ -27,7 +27,7 @@ export default function LoginPage() {
   };
 
   // This runs when the user clicks the Log In button
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); // Stop the page from reloading
     setError('');
     
@@ -184,9 +184,6 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <p className="text-center text-sm text-slate-500">
-            New here? <Link href="/Features/register" className="font-medium text-slate-950 transition hover:text-slate-950">Register</Link>
-          </p>
         </div>
       </div>
     </main>
