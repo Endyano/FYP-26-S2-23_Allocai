@@ -126,7 +126,7 @@ export default function TasksPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'Cancelled' } : t));
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'Cancellation Requested' } : t));
         setCancelReason('');
         setConfirmCancel(null);
       } else {
