@@ -23,7 +23,9 @@ function calcHours(start: string, end: string) {
   if (!start || !end) return '—';
   const [sh, sm] = start.split(':').map(Number);
   const [eh, em] = end.split(':').map(Number);
-  return ((eh * 60 + em - (sh * 60 + sm)) / 60).toFixed(1);
+  let diff = (eh * 60 + em) - (sh * 60 + sm);
+  if (diff < 0) diff += 24 * 60;
+  return (diff / 60).toFixed(1);
 }
 
 export default function HistoryPage() {

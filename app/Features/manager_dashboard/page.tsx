@@ -198,7 +198,9 @@ export default function DashboardPage() {
                 if (start && end) {
                   const [sh, sm] = start.split(':').map(Number);
                   const [eh, em] = end.split(':').map(Number);
-                  recordedHrs = ((eh * 60 + em - (sh * 60 + sm)) / 60).toFixed(1) + 'h';
+                  let diff = (eh * 60 + em) - (sh * 60 + sm);
+                  if (diff < 0) diff += 24 * 60;
+                  recordedHrs = (diff / 60).toFixed(1) + 'h';
                 }
                 return (
                   <tr key={dispute.id} className="hover:bg-slate-50 transition-colors">
@@ -332,7 +334,9 @@ export default function DashboardPage() {
                 {(() => {
                   const [sh, sm] = (resolveModal.start_time || '0:0').split(':').map(Number);
                   const [eh, em] = (resolveModal.end_time   || '0:0').split(':').map(Number);
-                  return ((eh * 60 + em - (sh * 60 + sm)) / 60).toFixed(1);
+                  let diff = (eh * 60 + em) - (sh * 60 + sm);
+                  if (diff < 0) diff += 24 * 60;
+                  return (diff / 60).toFixed(1);
                 })()}h
               </span>
               {resolveModal.claimed_hours != null && (

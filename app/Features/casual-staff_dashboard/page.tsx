@@ -26,7 +26,9 @@ function formatTime(t: string) {
 function calcHours(start: string, end: string) {
   const [sh, sm] = start.split(':').map(Number);
   const [eh, em] = end.split(':').map(Number);
-  return ((eh * 60 + em - (sh * 60 + sm)) / 60).toFixed(1);
+  let diff = (eh * 60 + em) - (sh * 60 + sm);
+  if (diff < 0) diff += 24 * 60;
+  return (diff / 60).toFixed(1);
 }
 
 export default function CasualDashboard() {
@@ -46,16 +48,25 @@ export default function CasualDashboard() {
       })
       .catch(() => {});
 
+    fetch(`${API_URL}/api/casual_staff/tasks`, { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const completed = (data.tasks || []).filter((t: ScheduleItem) => t.status === 'Completed');
+          const totalHours = completed.reduce(
+            (sum: number, item: ScheduleItem) => sum + parseFloat(calcHours(item.start_time, item.end_time)),
+            0
+          );
+          setHoursUsed(parseFloat(totalHours.toFixed(1)));
+        }
+      })
+      .catch(() => {});
+
     fetch(`${API_URL}/api/casual_staff/schedule`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
           setSchedule(data.schedule || []);
-          const totalHours = (data.schedule || []).reduce(
-            (sum: number, item: ScheduleItem) => sum + parseFloat(calcHours(item.start_time, item.end_time)),
-            0
-          );
-          setHoursUsed(parseFloat(totalHours.toFixed(1)));
         } else {
           setError(true);
         }

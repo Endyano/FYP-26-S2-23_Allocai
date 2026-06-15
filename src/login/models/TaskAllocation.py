@@ -321,7 +321,9 @@ class TaskAllocation:
             if connection:
                 connection.close()
 
-    def cancel_task_by_staff(self, task_id, staff_id):
+    def cancel_task_by_staff(self, task_id, staff_id, reason=None):
+        if not reason or not reason.strip():
+            return {"success": False, "message": "A reason is required to request cancellation."}
         connection = None
         cursor = None
         try:
@@ -330,22 +332,84 @@ class TaskAllocation:
             cursor.execute(
                 """
                 UPDATE public.task_allocations
-                SET status = 'Cancelled'
+                SET status = 'Cancellation Requested', cancel_reason = %s
                 WHERE id = %s AND staff_id = %s AND status = 'Approved'
                 RETURNING id, status;
                 """,
-                (task_id, staff_id)
+                (reason.strip(), task_id, staff_id)
             )
             updated = cursor.fetchone()
             connection.commit()
             if not updated:
-                return {"success": False, "message": "Task not found or already completed/cancelled."}
+                return {"success": False, "message": "Task not found or cannot be cancelled in its current state."}
             return {"success": True, "task": dict(updated)}
         except Exception as error:
             if connection:
                 connection.rollback()
             print(f"Cancel task by staff error: {error}")
-            return {"success": False, "message": "Failed to cancel task."}
+            return {"success": False, "message": "Failed to submit cancellation request."}
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
+    def get_cancellation_requests(self, department_id):
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                SELECT ta.id, ta.task_name, ta.task_date, ta.start_time, ta.end_time,
+                       ta.cancel_reason, ta.status,
+                       p.full_name AS staff_name
+                FROM public.task_allocations ta
+                JOIN public.profiles p ON p.id = ta.staff_id
+                WHERE ta.department_id = %s AND ta.status = 'Cancellation Requested'
+                ORDER BY ta.task_date ASC;
+                """,
+                (department_id,)
+            )
+            return {"success": True, "requests": cursor.fetchall()}
+        except Exception as error:
+            print(f"Get cancellation requests error: {error}")
+            return {"success": False, "requests": []}
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
+    def resolve_cancellation(self, task_id, department_id, action):
+        if action not in ('approve', 'reject'):
+            return {"success": False, "message": "Invalid action."}
+        new_status = 'Cancelled' if action == 'approve' else 'Approved'
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(
+                """
+                UPDATE public.task_allocations
+                SET status = %s
+                WHERE id = %s AND department_id = %s AND status = 'Cancellation Requested'
+                RETURNING id, status;
+                """,
+                (new_status, task_id, department_id)
+            )
+            updated = cursor.fetchone()
+            connection.commit()
+            if not updated:
+                return {"success": False, "message": "Request not found or already resolved."}
+            return {"success": True, "task": dict(updated)}
+        except Exception as error:
+            if connection:
+                connection.rollback()
+            print(f"Resolve cancellation error: {error}")
+            return {"success": False, "message": "Failed to resolve cancellation request."}
         finally:
             if cursor:
                 cursor.close()

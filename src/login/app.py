@@ -343,8 +343,33 @@ def cancel_casual_task(task_id):
     if access_error:
         return access_error
 
+    data = request.get_json() or {}
     task_allocation = TaskAllocation()
-    result = task_allocation.cancel_task_by_staff(task_id, UserSession.get_user_id())
+    result = task_allocation.cancel_task_by_staff(task_id, UserSession.get_user_id(), data.get('reason'))
+    return jsonify(result), (200 if result['success'] else 400)
+
+
+@app.route('/api/department/cancellation-requests', methods=['GET'])
+def department_cancellation_requests():
+    access_error = require_login('department')
+    if access_error:
+        return access_error
+
+    task_allocation = TaskAllocation()
+    result = task_allocation.get_cancellation_requests(UserSession.get_user_id())
+    return jsonify(result), (200 if result['success'] else 500)
+
+
+@app.route('/api/department/tasks/<int:task_id>/resolve-cancellation', methods=['PATCH'])
+def resolve_cancellation(task_id):
+    access_error = require_login('department')
+    if access_error:
+        return access_error
+
+    data = request.get_json() or {}
+    action = data.get('action')
+    task_allocation = TaskAllocation()
+    result = task_allocation.resolve_cancellation(task_id, UserSession.get_user_id(), action)
     return jsonify(result), (200 if result['success'] else 400)
 
 

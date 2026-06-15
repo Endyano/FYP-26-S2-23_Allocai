@@ -17,17 +17,19 @@ type Task = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  Approved:  'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/20',
-  Completed: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
-  Cancelled: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20',
-  Pending:   'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
+  Approved:                 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/20',
+  Completed:                'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
+  Cancelled:                'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20',
+  Pending:                  'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
+  'Cancellation Requested': 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/20',
 };
 
 const DOT_STYLES: Record<string, string> = {
-  Approved:  'bg-indigo-500',
-  Completed: 'bg-emerald-500',
-  Cancelled: 'bg-rose-500',
-  Pending:   'bg-amber-500',
+  Approved:                 'bg-indigo-500',
+  Completed:                'bg-emerald-500',
+  Cancelled:                'bg-rose-500',
+  Pending:                  'bg-amber-500',
+  'Cancellation Requested': 'bg-orange-500',
 };
 
 function formatDate(d: string) {
@@ -45,7 +47,9 @@ function formatTime(t: string) {
 function calcHours(start: string, end: string) {
   const [sh, sm] = start.split(':').map(Number);
   const [eh, em] = end.split(':').map(Number);
-  return ((eh * 60 + em - (sh * 60 + sm)) / 60).toFixed(1);
+  let diff = (eh * 60 + em) - (sh * 60 + sm);
+  if (diff < 0) diff += 24 * 60;
+  return (diff / 60).toFixed(1);
 }
 
 export default function TasksPage() {
@@ -53,9 +57,11 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'All' | 'Approved' | 'Completed' | 'Cancelled'>('All');
+  const [activeFilter, setActiveFilter] = useState<'All' | 'Approved' | 'Completed' | 'Cancelled' | 'Cancellation Requested'>('All');
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [confirmCancel, setConfirmCancel] = useState<Task | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState('');
 
   const [disputeTask, setDisputeTask] = useState<Task | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
@@ -105,21 +111,31 @@ export default function TasksPage() {
   }
 
   async function cancelTask(taskId: number) {
+    if (!cancelReason.trim()) {
+      setCancelError('Please provide a reason for cancelling.');
+      return;
+    }
     setProcessingId(taskId);
+    setCancelError('');
     try {
       const res = await fetch(`${API_URL}/api/casual_staff/tasks/${taskId}/cancel`, {
         method: 'PATCH',
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: cancelReason.trim() }),
       });
       const data = await res.json();
       if (data.success) {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'Cancelled' } : t));
+        setCancelReason('');
+        setConfirmCancel(null);
+      } else {
+        setCancelError(data.message || 'Failed to cancel task.');
       }
     } catch {
-      // silently fail
+      setCancelError('Could not reach the server.');
     } finally {
       setProcessingId(null);
-      setConfirmCancel(null);
     }
   }
 
@@ -175,6 +191,7 @@ export default function TasksPage() {
     Approved: tasks.filter(t => t.status === 'Approved').length,
     Completed: tasks.filter(t => t.status === 'Completed').length,
     Cancelled: tasks.filter(t => t.status === 'Cancelled').length,
+    'Cancellation Requested': tasks.filter(t => t.status === 'Cancellation Requested').length,
   };
 
   return (
@@ -193,8 +210,8 @@ export default function TasksPage() {
           />
         </div>
 
-        <div className="flex gap-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-1.5">
-          {(['All', 'Approved', 'Completed', 'Cancelled'] as const).map(f => (
+        <div className="flex gap-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-1.5 flex-wrap">
+          {(['All', 'Approved', 'Completed', 'Cancelled', 'Cancellation Requested'] as const).map(f => (
             <button
               key={f}
               onClick={() => setActiveFilter(f)}
@@ -309,6 +326,9 @@ export default function TasksPage() {
                           )}
                         </div>
                       )}
+                      {task.status === 'Cancellation Requested' && (
+                        <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 px-2.5 py-1 rounded-full">Awaiting approval</span>
+                      )}
                       {task.status === 'Cancelled' && (
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cancelled</span>
                       )}
@@ -324,25 +344,36 @@ export default function TasksPage() {
       {/* Cancel confirmation modal */}
       {confirmCancel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white px-10 py-10 rounded-3xl shadow-2xl w-full max-w-sm">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 mb-6">
+          <div className="bg-white px-8 py-8 rounded-3xl shadow-2xl w-full max-w-sm">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 mb-4">
               <svg className="w-7 h-7 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
             </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2 text-center">Cancel Task?</h3>
-            <p className="text-center text-sm text-slate-500 mb-2">
-              <span className="font-semibold text-slate-700">{confirmCancel.task_name}</span>
-            </p>
-            <p className="text-center text-sm text-slate-500 mb-8">This will mark the task as cancelled. The department will be notified.</p>
+            <h3 className="text-xl font-bold text-slate-900 mb-1 text-center">Request Cancellation</h3>
+            <p className="text-center text-sm font-semibold text-slate-700 mb-1">{confirmCancel.task_name}</p>
+            <p className="text-center text-xs text-slate-500 mb-4">Your request will be sent to the department for approval.</p>
+            <div className="mb-4">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                Reason <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={e => { setCancelReason(e.target.value); setCancelError(''); }}
+                placeholder="Please explain why you are cancelling this task..."
+                rows={3}
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 resize-none"
+              />
+              {cancelError && <p className="mt-1.5 text-xs font-medium text-rose-600">{cancelError}</p>}
+            </div>
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => cancelTask(confirmCancel.id)}
                 disabled={processingId === confirmCancel.id}
                 className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
               >
-                {processingId === confirmCancel.id ? 'Cancelling...' : 'Yes, cancel task'}
+                {processingId === confirmCancel.id ? 'Submitting...' : 'Submit Request'}
               </button>
               <button
-                onClick={() => setConfirmCancel(null)}
+                onClick={() => { setConfirmCancel(null); setCancelReason(''); setCancelError(''); }}
                 className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold py-3 rounded-xl transition-colors"
               >
                 Go back
