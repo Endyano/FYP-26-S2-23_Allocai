@@ -28,7 +28,11 @@ class CasualStaff:
                     p.is_suspended,
                     p.max_weekly_hours,
                     COALESCE(SUM(
-                        CASE WHEN ta.status IN ('Approved', 'Cancellation Requested') THEN
+                        CASE WHEN ta.status IN ('Approved', 'Cancellation Requested')
+                             OR (ta.status = 'Completed'
+                                 AND ta.task_date >= date_trunc('week', CURRENT_DATE)
+                                 AND ta.task_date <= date_trunc('week', CURRENT_DATE) + INTERVAL '6 days')
+                        THEN
                             CASE WHEN ta.end_time < ta.start_time THEN
                                 EXTRACT(EPOCH FROM (ta.end_time - ta.start_time + INTERVAL '24 hours')) / 3600
                             ELSE

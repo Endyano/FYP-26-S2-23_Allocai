@@ -31,6 +31,19 @@ function calcHours(start: string, end: string) {
   return (diff / 60).toFixed(1);
 }
 
+function isThisWeek(dateStr: string) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const day = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return date >= monday && date <= sunday;
+}
+
 export default function CasualDashboard() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [hoursUsed, setHoursUsed] = useState<number | null>(null);
@@ -52,7 +65,7 @@ export default function CasualDashboard() {
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          const completed = (data.tasks || []).filter((t: ScheduleItem) => t.status === 'Completed');
+          const completed = (data.tasks || []).filter((t: ScheduleItem) => t.status === 'Completed' && isThisWeek(t.task_date));
           const totalHours = completed.reduce(
             (sum: number, item: ScheduleItem) => sum + parseFloat(calcHours(item.start_time, item.end_time)),
             0

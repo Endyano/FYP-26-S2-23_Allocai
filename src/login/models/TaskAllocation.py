@@ -103,6 +103,60 @@ class TaskAllocation:
         try:
             connection = self.get_connection()
             cursor = connection.cursor(cursor_factory=RealDictCursor)
+
+            # Get task duration
+            cursor.execute(
+                "SELECT start_time, end_time FROM public.task_allocations WHERE id = %s AND department_id = %s;",
+                (task_id, department_id)
+            )
+            task = cursor.fetchone()
+            if not task:
+                return {"success": False, "message": "Task not found."}
+
+            start = task['start_time']
+            end = task['end_time']
+            start_mins = start.hour * 60 + start.minute
+            end_mins = end.hour * 60 + end.minute
+            diff_mins = end_mins - start_mins
+            if diff_mins < 0:
+                diff_mins += 24 * 60
+            task_hours = diff_mins / 60
+
+            # Get staff's current allocated hours and weekly limit
+            cursor.execute(
+                """
+                SELECT p.full_name, p.max_weekly_hours,
+                       COALESCE(SUM(
+                           CASE WHEN ta.status IN ('Approved', 'Cancellation Requested')
+                                OR (ta.status = 'Completed'
+                                    AND ta.task_date >= date_trunc('week', CURRENT_DATE)
+                                    AND ta.task_date <= date_trunc('week', CURRENT_DATE) + INTERVAL '6 days')
+                           THEN
+                               CASE WHEN ta.end_time < ta.start_time THEN
+                                   EXTRACT(EPOCH FROM (ta.end_time - ta.start_time + INTERVAL '24 hours')) / 3600
+                               ELSE
+                                   EXTRACT(EPOCH FROM (ta.end_time - ta.start_time)) / 3600
+                               END
+                           ELSE 0 END
+                       ), 0) AS allocated_hours
+                FROM public.profiles p
+                LEFT JOIN public.task_allocations ta ON ta.staff_id = p.id
+                WHERE p.id = %s
+                GROUP BY p.full_name, p.max_weekly_hours;
+                """,
+                (staff_id,)
+            )
+            staff = cursor.fetchone()
+            if not staff:
+                return {"success": False, "message": "Staff member not found."}
+
+            if float(staff['allocated_hours']) + task_hours > float(staff['max_weekly_hours']):
+                remaining = float(staff['max_weekly_hours']) - float(staff['allocated_hours'])
+                return {
+                    "success": False,
+                    "message": f"Cannot assign: {staff['full_name']} only has {remaining:.1f}h remaining this week (limit: {staff['max_weekly_hours']}h). This task requires {task_hours:.1f}h."
+                }
+
             cursor.execute(
                 """
                 UPDATE public.task_allocations

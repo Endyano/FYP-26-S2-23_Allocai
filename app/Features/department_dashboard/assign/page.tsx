@@ -17,8 +17,19 @@ type Task = {
   id: number;
   task_name: string;
   task_date: string;
+  start_time: string;
+  end_time: string;
   staff_id: string | null;
 };
+
+function calcTaskHours(start: string, end: string) {
+  if (!start || !end) return 0;
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let diff = (eh * 60 + em) - (sh * 60 + sm);
+  if (diff < 0) diff += 24 * 60;
+  return diff / 60;
+}
 
 export default function AssignStaffPage() {
   const [staffList, setStaffList] = useState<Staff[]>([]);
@@ -226,13 +237,38 @@ export default function AssignStaffPage() {
               </div>
             </div>
 
+            {(() => {
+              if (!selectedStaff || !selectedTaskId) return null;
+              const task = unassignedTasks.find(t => t.id === Number(selectedTaskId));
+              if (!task) return null;
+              const taskHours = calcTaskHours(task.start_time, task.end_time);
+              const newTotal = selectedStaff.allocated_hours + taskHours;
+              const wouldExceed = newTotal > selectedStaff.max_weekly_hours;
+              if (wouldExceed) return (
+                <p className="mt-3 text-sm text-rose-600 font-medium bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
+                  ⚠ This task ({taskHours.toFixed(1)}h) would bring {selectedStaff.full_name} to {newTotal.toFixed(1)}h — exceeding their {selectedStaff.max_weekly_hours}h weekly limit.
+                </p>
+              );
+              const pctAfter = (newTotal / selectedStaff.max_weekly_hours) * 100;
+              if (pctAfter >= 90) return (
+                <p className="mt-3 text-sm text-amber-700 font-medium bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  ⚠ This task will bring {selectedStaff.full_name} to {newTotal.toFixed(1)}h ({pctAfter.toFixed(0)}% of their weekly limit).
+                </p>
+              );
+              return null;
+            })()}
+
             {assignError && <p className="mt-3 text-sm text-rose-600 font-medium">{assignError}</p>}
             {assignSuccess && <p className="mt-3 text-sm text-emerald-600 font-medium">{assignSuccess}</p>}
 
             <div className="mt-6 flex gap-3">
               <button
                 onClick={confirmAssign}
-                disabled={assigning || !selectedTaskId || unassignedTasks.length === 0}
+                disabled={assigning || !selectedTaskId || unassignedTasks.length === 0 || (() => {
+                  const task = unassignedTasks.find(t => t.id === Number(selectedTaskId));
+                  if (!task || !selectedStaff) return false;
+                  return selectedStaff.allocated_hours + calcTaskHours(task.start_time, task.end_time) > selectedStaff.max_weekly_hours;
+                })()}
                 className="rounded-xl bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 shadow-sm active:scale-95 disabled:opacity-50"
               >
                 {assigning ? 'Assigning...' : 'Confirm Assignment'}

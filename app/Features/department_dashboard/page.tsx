@@ -4,6 +4,16 @@ import { useState, useEffect } from 'react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
+  const h = Math.floor(i / 4);
+  const m = (i % 4) * 15;
+  const value = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const display12 = h % 12 || 12;
+  const label = `${display12}:${m.toString().padStart(2, '0')} ${ampm}`;
+  return { value, label };
+});
+
 interface Task {
   id: number;
   task_name: string;
@@ -218,12 +228,28 @@ export default function ManageTasksPage() {
 
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Start Time</label>
-            <input name="start_time" value={form.start_time} onChange={handleChange} type="time" required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all" />
+            <div className="relative">
+              <select name="start_time" value={form.start_time} onChange={handleChange} required className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all cursor-pointer">
+                <option value="">— Select start time —</option>
+                {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">End Time</label>
-            <input name="end_time" value={form.end_time} onChange={handleChange} type="time" required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all" />
+            <div className="relative">
+              <select name="end_time" value={form.end_time} onChange={handleChange} required className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all cursor-pointer">
+                <option value="">— Select end time —</option>
+                {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>
+              </div>
+            </div>
           </div>
 
           <div className="md:col-span-2 pt-2 flex gap-3">
