@@ -21,16 +21,26 @@ class CasualStaff:
 
             query = """
                 SELECT
-                    id,
-                    full_name,
-                    email,
-                    role,
-                    is_suspended,
-                    max_weekly_hours,
-                    allocated_hours
-                FROM public.profiles
-                WHERE role = 'Casual Staff'
-                ORDER BY full_name;
+                    p.id,
+                    p.full_name,
+                    p.email,
+                    p.role,
+                    p.is_suspended,
+                    p.max_weekly_hours,
+                    COALESCE(SUM(
+                        CASE WHEN ta.status IN ('Approved', 'Cancellation Requested') THEN
+                            CASE WHEN ta.end_time < ta.start_time THEN
+                                EXTRACT(EPOCH FROM (ta.end_time - ta.start_time + INTERVAL '24 hours')) / 3600
+                            ELSE
+                                EXTRACT(EPOCH FROM (ta.end_time - ta.start_time)) / 3600
+                            END
+                        ELSE 0 END
+                    ), 0) AS allocated_hours
+                FROM public.profiles p
+                LEFT JOIN public.task_allocations ta ON ta.staff_id = p.id
+                WHERE p.role = 'Casual Staff'
+                GROUP BY p.id, p.full_name, p.email, p.role, p.is_suspended, p.max_weekly_hours
+                ORDER BY p.full_name;
             """
 
             cursor.execute(query)
