@@ -7,13 +7,26 @@ import { useRouter } from 'next/navigation';
 export default function RegisterPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simpan nama agar Homepage bisa mendeteksi user
-    localStorage.setItem('allocai_user', fullName);
-    // Redirect ke home
-    router.push('/');
+
+    // Save user data to localStorage (basic demo storage)
+    const userData = {
+      fullName,
+      phone,
+      email,
+      // NOTE: In production do NOT store raw passwords in localStorage
+      password,
+      role: 'company-admin', // default for onboarding flow
+    };
+    localStorage.setItem('allocai_user', JSON.stringify(userData));
+
+    // Start the onboarding flow: go to verification (OTP/email)
+    router.push('/Features/register/verify');
   };
 
   return (
