@@ -64,12 +64,28 @@ export default function CompanyAdminLayout({ children }: { children: React.React
   const [greeting, setGreeting] = useState('Welcome back');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
+  const parseUserDisplayName = (raw: string | null) => {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.fullName === 'string' && parsed.fullName.trim()) return parsed.fullName;
+        if (typeof parsed.name === 'string' && parsed.name.trim()) return parsed.name;
+        if (typeof parsed.userName === 'string' && parsed.userName.trim()) return parsed.userName;
+      }
+    } catch {
+      // raw string fallback
+    }
+    return raw;
+  };
+
   useEffect(() => {
     const savedUser = localStorage.getItem('allocai_user');
     if (!savedUser) {
       router.push('/Features/login');
     } else {
-      setUserName(savedUser);
+      const displayName = parseUserDisplayName(savedUser) || 'User';
+      setUserName(displayName);
       const hour = new Date().getHours();
       if (hour < 12) setGreeting('Good morning');
       else if (hour < 18) setGreeting('Good afternoon');
