@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { useState } from 'react';
 
 type Staff = {
   id: string;
@@ -13,10 +11,18 @@ type Staff = {
   max_weekly_hours: number;
 };
 
+const MOCK_STAFF: Staff[] = [
+  { id: 'FT-001', full_name: 'Wei Jie Lim',          email: 'weijie@harbourfoods.sg',  role: 'Full Time Staff', is_suspended: false, max_weekly_hours: 44 },
+  { id: 'FT-002', full_name: 'Mei Lin Chen',          email: 'meilin@harbourfoods.sg',  role: 'Full Time Staff', is_suspended: true,  max_weekly_hours: 44 },
+  { id: 'FT-003', full_name: 'Nurul Huda Binte Aziz', email: 'nurulhuda@harbourfoods.sg',role: 'Full Time Staff', is_suspended: false, max_weekly_hours: 44 },
+  { id: 'PT-001', full_name: 'Priya Nair',            email: 'priya@harbourfoods.sg',   role: 'Part Time Staff', is_suspended: false, max_weekly_hours: 16 },
+  { id: 'PT-002', full_name: 'Kevin Loh Jun Hao',     email: 'kevin@harbourfoods.sg',   role: 'Part Time Staff', is_suspended: false, max_weekly_hours: 16 },
+];
+
 export default function UsersPage() {
-  const [staffList, setStaffList] = useState<Staff[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [staffList, setStaffList] = useState<Staff[]>(MOCK_STAFF);
+  const [loading] = useState(false);
+  const [error] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
@@ -24,35 +30,9 @@ export default function UsersPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
 
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({ full_name: '', email: '', password: '' });
-  const [addSaving, setAddSaving] = useState(false);
-  const [addError, setAddError] = useState('');
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchStaff();
-  }, []);
-
-  async function fetchStaff() {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(`${API_URL}/api/manager/staff`, { credentials: 'include' });
-      const data = await res.json();
-      if (data.success) {
-        setStaffList(data.staff);
-      } else {
-        setError(data.message || 'Failed to load staff.');
-      }
-    } catch {
-      setError('Could not reach the server. Make sure the backend is running.');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function openEdit(staff: Staff) {
     setEditingStaff(staff);
@@ -60,89 +40,29 @@ export default function UsersPage() {
     setEditError('');
   }
 
-  async function saveEdit() {
+  function saveEdit() {
     if (!editingStaff) return;
     setEditSaving(true);
-    setEditError('');
-    try {
-      const res = await fetch(`${API_URL}/api/manager/staff/${editingStaff.id}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setStaffList(prev => prev.map(s => s.id === editingStaff.id ? data.profile : s));
-        setEditingStaff(null);
-      } else {
-        setEditError(data.message || 'Failed to save.');
-      }
-    } catch {
-      setEditError('Could not reach the server.');
-    } finally {
+    setTimeout(() => {
+      setStaffList(prev => prev.map(s => s.id === editingStaff.id ? { ...s, ...editForm } : s));
+      setEditingStaff(null);
       setEditSaving(false);
-    }
+    }, 500);
   }
 
-  async function toggleSuspend(staff: Staff) {
-    try {
-      const res = await fetch(`${API_URL}/api/manager/staff/${staff.id}/suspend`, {
-        method: 'PATCH',
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.success) {
-        setStaffList(prev => prev.map(s => s.id === staff.id ? { ...s, is_suspended: data.is_suspended } : s));
-      }
-    } catch {
-      // silently fail — user can retry
-    }
+  function toggleSuspend(staff: Staff) {
+    setStaffList(prev => prev.map(s => s.id === staff.id ? { ...s, is_suspended: !s.is_suspended } : s));
   }
 
-  async function deleteStaff(staffId: string) {
+  function deleteStaff(staffId: string) {
     setDeletingId(staffId);
-    try {
-      const res = await fetch(`${API_URL}/api/manager/staff/${staffId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.success) {
-        setStaffList(prev => prev.filter(s => s.id !== staffId));
-      }
-    } catch {
-      // silently fail
-    } finally {
+    setTimeout(() => {
+      setStaffList(prev => prev.filter(s => s.id !== staffId));
       setDeletingId(null);
       setConfirmDeleteId(null);
-    }
+    }, 500);
   }
 
-  async function addStaff() {
-    setAddSaving(true);
-    setAddError('');
-    try {
-      const res = await fetch(`${API_URL}/api/manager/create-staff`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(addForm),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setStaffList(prev => [...prev, data.profile]);
-        setShowAddModal(false);
-        setAddForm({ full_name: '', email: '', password: '' });
-      } else {
-        setAddError(data.message || 'Failed to create staff.');
-      }
-    } catch {
-      setAddError('Could not reach the server.');
-    } finally {
-      setAddSaving(false);
-    }
-  }
 
   const filtered = staffList.filter(s =>
     s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -152,25 +72,16 @@ export default function UsersPage() {
   return (
     <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
 
-      {/* Top bar: search + add */}
-      <div className="flex items-center gap-3">
-        <div className="flex flex-1 items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm border border-slate-200">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input
-            type="text"
-            placeholder="Search staff by name or email..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
-          />
-        </div>
-        <button
-          onClick={() => { setShowAddModal(true); setAddError(''); setAddForm({ full_name: '', email: '', password: '' }); }}
-          className="flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-slate-900/10 transition hover:bg-slate-800 active:scale-95 whitespace-nowrap"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add New Staff
-        </button>
+      {/* Search bar */}
+      <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm border border-slate-200">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          type="text"
+          placeholder="Search staff by name or email..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+        />
       </div>
 
       {/* Error banner */}
@@ -316,70 +227,6 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* Add New Staff modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
-            <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">Add New Staff</h3>
-                <p className="text-sm text-slate-500 mt-1">Create a new casual staff account.</p>
-              </div>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-full p-2 transition-colors border border-slate-200">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Full Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. John Smith"
-                  value={addForm.full_name}
-                  onChange={e => setAddForm(f => ({ ...f, full_name: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email</label>
-                <input
-                  type="email"
-                  placeholder="staff@example.com"
-                  value={addForm.email}
-                  onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label>
-                <input
-                  type="password"
-                  placeholder="Min. 6 characters"
-                  value={addForm.password}
-                  onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
-                />
-              </div>
-            </div>
-
-            {addError && <p className="mt-3 text-sm text-rose-600 font-medium">{addError}</p>}
-
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={addStaff}
-                disabled={addSaving}
-                className="rounded-xl bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 shadow-sm active:scale-95 disabled:opacity-60"
-              >
-                {addSaving ? 'Creating...' : 'Create Staff'}
-              </button>
-              <button onClick={() => setShowAddModal(false)} className="rounded-xl bg-white border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Delete confirmation modal */}
       {confirmDeleteId && (

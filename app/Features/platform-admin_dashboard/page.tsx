@@ -43,14 +43,18 @@ export default function PlatformAdminDashboard() {
   ]);
 
   const [reviews, setReviews] = useState([
-    { id: 1, author: 'M. Chen (Optimo Foods)', text: 'Sangat membantu memotong waktu penjadwalan tim operasional.', status: 'Pending' },
-    { id: 2, author: 'S. Jenkins', text: 'Fitur real-time kadang agak lambat kalau koneksi kurang stabil.', status: 'Pending' },
+    { id: 1, author: 'M. Chen (Harbour Foods Pte. Ltd.)', text: 'Very helpful in cutting down scheduling time for the operations team.', status: 'Pending' },
+    { id: 2, author: 'S. Jenkins (Nexus Retail)', text: 'The real-time feature occasionally lags when the connection is unstable.', status: 'Pending' },
   ]);
 
   const [auditLogs] = useState([
-    { id: 101, action: 'Suspended Tenant', target: 'BlueWave Logistics', time: '2 hours ago' },
-    { id: 102, action: 'Updated Plan', target: 'Professional (Feature Gates)', time: '5 hours ago' },
-    { id: 103, action: 'Approved Review', target: 'Review #892', time: '1 day ago' },
+    { id: 101, action: 'Suspended Tenant', target: 'BlueWave Logistics', actor: 'platformadmin', time: '25 Jun 2026, 10:42 AM' },
+    { id: 102, action: 'Updated Plan', target: 'Professional (Feature Gates)', actor: 'platformadmin', time: '25 Jun 2026, 07:15 AM' },
+    { id: 103, action: 'Approved Review', target: 'Review #892', actor: 'platformadmin', time: '24 Jun 2026, 03:20 PM' },
+    { id: 104, action: 'Created Tenant', target: 'Nexus Retail (TEN-02)', actor: 'platformadmin', time: '5 Jan 2026, 09:00 AM' },
+    { id: 105, action: 'Deleted Review', target: 'Review #874', actor: 'platformadmin', time: '22 Dec 2025, 11:35 AM' },
+    { id: 106, action: 'Updated Plan', target: 'Starter (Staff Cap: 10)', actor: 'platformadmin', time: '15 Nov 2025, 02:10 PM' },
+    { id: 107, action: 'Created Tenant', target: 'Harbour Foods Pte. Ltd. (TEN-01)', actor: 'platformadmin', time: '12 Oct 2025, 08:30 AM' },
   ]);
 
   // --- MODALS ---
@@ -113,7 +117,7 @@ export default function PlatformAdminDashboard() {
   return (
     <div className="flex min-h-screen bg-[#F9FAFB] text-slate-900 font-sans">
       
-      {/* ================= SIDEBAR (KIRI) ================= */}
+      {/* Sidebar */}
       <aside className="w-[280px] bg-white border-r border-slate-200 flex flex-col fixed h-screen z-20">
         
         {/* Logo Section */}
@@ -150,7 +154,7 @@ export default function PlatformAdminDashboard() {
             Plans
           </button>
           
-          <button 
+          <button
             onClick={() => setActiveTab('reviews')}
             className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-sm font-semibold transition-all ${activeTab === 'reviews' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
           >
@@ -163,6 +167,14 @@ export default function PlatformAdminDashboard() {
                 {pendingReviewsCount}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('auditlogs')}
+            className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-semibold transition-all ${activeTab === 'auditlogs' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+            Audit Logs
           </button>
         </nav>
 
@@ -187,7 +199,7 @@ export default function PlatformAdminDashboard() {
         </div>
       </aside>
 
-      {/* ================= KONTEN UTAMA (KANAN) ================= */}
+      {/* Main Content */}
       <main className="flex-1 ml-[280px] p-10 max-w-6xl">
         
         {/* Header (Greeting) */}
@@ -198,7 +210,7 @@ export default function PlatformAdminDashboard() {
           </p>
         </header>
 
-        {/* TAMPILAN 1: Dashboard (Analytics & Logs) */}
+        {/* Dashboard Analytics */}
         {activeTab === 'analytics' && (
           <div className="space-y-8 animate-[fadeIn_0.3s_ease-out]">
             
@@ -238,38 +250,10 @@ export default function PlatformAdminDashboard() {
               </div>
             </div>
 
-            {/* System Audit Logs */}
-            <div className="rounded-3xl bg-white border border-slate-100 shadow-sm overflow-hidden mt-8">
-              <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">System Audit Logs</h2>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
-                    <tr>
-                      <th className="px-6 py-4 font-semibold">Action</th>
-                      <th className="px-6 py-4 font-semibold">Target</th>
-                      <th className="px-6 py-4 font-semibold text-right">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50 bg-white">
-                    {auditLogs.map(log => (
-                      <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-bold text-slate-900">{log.action}</td>
-                        <td className="px-6 py-4 text-slate-600">{log.target}</td>
-                        <td className="px-6 py-4 text-slate-400 text-xs text-right">{log.time}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </div>
         )}
 
-        {/* TAMPILAN 2: Companies */}
+        {/* Companies */}
         {activeTab === 'companies' && (
           <div className="animate-[fadeIn_0.3s_ease-out]">
             <div className="rounded-3xl bg-white border border-slate-100 shadow-sm overflow-hidden">
@@ -316,7 +300,7 @@ export default function PlatformAdminDashboard() {
           </div>
         )}
 
-        {/* TAMPILAN 3: Plans */}
+        {/* Plans */}
         {activeTab === 'plans' && (
           <div className="animate-[fadeIn_0.3s_ease-out]">
             <div className="rounded-3xl bg-white border border-slate-100 shadow-sm overflow-hidden">
@@ -351,7 +335,50 @@ export default function PlatformAdminDashboard() {
           </div>
         )}
 
-        {/* TAMPILAN 4: Reviews */}
+        {/* Audit Logs */}
+        {activeTab === 'auditlogs' && (
+          <div className="animate-[fadeIn_0.3s_ease-out]">
+            <div className="rounded-3xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">System Audit Logs</h2>
+                  <p className="text-sm text-slate-500 mt-0.5">A record of all administrative actions performed on this platform.</p>
+                </div>
+                <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full">{auditLogs.length} entries</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
+                    <tr>
+                      <th className="px-6 py-4 font-semibold">Log ID</th>
+                      <th className="px-6 py-4 font-semibold">Action</th>
+                      <th className="px-6 py-4 font-semibold">Target</th>
+                      <th className="px-6 py-4 font-semibold">Actor</th>
+                      <th className="px-6 py-4 font-semibold text-right">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 bg-white">
+                    {auditLogs.map(log => (
+                      <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 font-mono text-slate-400 text-xs">#{log.id}</td>
+                        <td className="px-6 py-4 font-bold text-slate-900">{log.action}</td>
+                        <td className="px-6 py-4 text-slate-600">{log.target}</td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                            {log.actor}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-slate-400 text-xs text-right">{log.time}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'reviews' && (
           <div className="animate-[fadeIn_0.3s_ease-out]">
             <div className="rounded-3xl bg-white border border-slate-100 shadow-sm overflow-hidden">
