@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 const FAQS = [
   { q: 'What is Allocai?', a: 'Allocai is a smart task allocation platform that automatically assigns shifts and tasks to the right staff based on skills and availability — saving managers hours every week.' },
   { q: 'How does it work?', a: 'Managers create tasks with a date, time, and required skills. Allocai matches them against staff who have marked themselves available, then suggests or auto-assigns the best fit.' },
-  { q: 'What are the pricing plans?', a: 'We offer a Free tier for small teams, a Pro plan for growing businesses, and an Enterprise plan with custom limits. Visit our Pricing page for full details.' },
+  { q: 'What are the pricing plans?', a: 'We offer three plans: Free ($0/mo, up to 5 staff), Starter ($29/mo, up to 30 staff), and Pro ($99/mo, unlimited staff with AI auto-scheduling). Visit our Pricing page for full details.' },
   { q: 'Is there a free trial available?', a: 'Yes! Every new company account starts with a 14-day free trial of the Pro plan — no credit card required.' },
   { q: 'How can I cancel my subscription?', a: 'You can cancel any time from your Company Admin dashboard under Billing. Your account stays active until the end of the current billing period.' },
 ];

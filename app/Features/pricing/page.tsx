@@ -72,17 +72,17 @@ export default function PricingPage() {
             <h1 className="text-4xl font-bold tracking-tight text-zinc-900">Simple, transparent pricing</h1>
             <p className="mt-4 text-lg text-zinc-500">Start for free, upgrade when your team grows.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-            
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+
             {/* Free Tier */}
             <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-900/5 flex flex-col">
-              <h3 className="text-xl font-bold text-zinc-900">Starter</h3>
+              <h3 className="text-xl font-bold text-zinc-900">Free</h3>
               <div className="mt-4 flex items-baseline text-5xl font-extrabold text-zinc-900">
                 $0<span className="ml-1 text-xl font-medium text-zinc-500">/mo</span>
               </div>
               <p className="mt-4 text-zinc-500 text-sm">Perfect for small teams testing the waters.</p>
               <ul className="mt-8 space-y-4 flex-1">
-                {['Up to 10 staff members', 'Basic task allocation', 'Standard support'].map((feature, i) => (
+                {['Up to 5 staff members', 'Basic task allocation', 'Standard support'].map((feature, i) => (
                   <li key={i} className="flex items-center gap-3 text-sm text-zinc-700">
                     <svg className="h-5 w-5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                     {feature}
@@ -94,14 +94,34 @@ export default function PricingPage() {
               </Link>
             </div>
 
+            {/* Starter Tier */}
+            <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-900/5 flex flex-col">
+              <h3 className="text-xl font-bold text-zinc-900">Starter</h3>
+              <div className="mt-4 flex items-baseline text-5xl font-extrabold text-zinc-900">
+                $29<span className="ml-1 text-xl font-medium text-zinc-500">/mo</span>
+              </div>
+              <p className="mt-4 text-zinc-500 text-sm">For growing teams that need more control.</p>
+              <ul className="mt-8 space-y-4 flex-1">
+                {['Up to 30 staff members', 'Smart task allocation', 'Cancellation management', 'Email support'].map((feature, i) => (
+                  <li key={i} className="flex items-center gap-3 text-sm text-zinc-700">
+                    <svg className="h-5 w-5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/Features/register" className="mt-8 block w-full rounded-full bg-zinc-100 px-6 py-3 text-center text-sm font-semibold text-zinc-900 hover:bg-zinc-200 transition-colors">
+                Get Started
+              </Link>
+            </div>
+
             {/* Pro Tier */}
             <div className="relative rounded-3xl bg-zinc-900 p-8 shadow-xl flex flex-col">
               <div className="absolute top-0 right-8 -translate-y-1/2 rounded-full bg-rose-500 px-3 py-1 text-xs font-bold text-white tracking-wide uppercase">Most Popular</div>
-              <h3 className="text-xl font-bold text-white">Professional</h3>
+              <h3 className="text-xl font-bold text-white">Pro</h3>
               <div className="mt-4 flex items-baseline text-5xl font-extrabold text-white">
-                $49<span className="ml-1 text-xl font-medium text-zinc-400">/mo</span>
+                $99<span className="ml-1 text-xl font-medium text-zinc-400">/mo</span>
               </div>
-              <p className="mt-4 text-zinc-400 text-sm">Everything you need for a growing operation.</p>
+              <p className="mt-4 text-zinc-400 text-sm">Everything you need for a full-scale operation.</p>
               <ul className="mt-8 space-y-4 flex-1">
                 {['Unlimited staff members', 'AI auto-scheduling', 'Live conflict resolution', 'Priority 24/7 support'].map((feature, i) => (
                   <li key={i} className="flex items-center gap-3 text-sm text-zinc-300">
