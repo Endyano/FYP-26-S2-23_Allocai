@@ -11,6 +11,7 @@ from flask_cors import CORS
 from boundary.auth_boundary import auth_bp
 from boundary.manager_boundary import manager_bp
 from boundary.public_boundary import public_bp
+from boundary.full_time_staff_boundary import full_time_staff_bp
 from control.auth_control import AuthControl
 
 load_dotenv()
@@ -37,6 +38,7 @@ CORS(app, supports_credentials=True)
 app.register_blueprint(public_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(manager_bp)
+app.register_blueprint(full_time_staff_bp)
 
 
 @app.route("/")
