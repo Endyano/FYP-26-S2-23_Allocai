@@ -13,6 +13,8 @@ from boundary.manager_boundary import manager_bp
 from boundary.public_boundary import public_bp
 from boundary.full_time_staff_boundary import full_time_staff_bp
 from control.auth_control import AuthControl
+from boundary.part_time_staff_boundary import part_time_staff_bp
+from boundary.company_admin_boundary import company_admin_bp
 
 load_dotenv()
 
@@ -39,6 +41,8 @@ app.register_blueprint(public_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(manager_bp)
 app.register_blueprint(full_time_staff_bp)
+app.register_blueprint(part_time_staff_bp)
+app.register_blueprint(company_admin_bp)
 
 
 @app.route("/")

@@ -116,6 +116,7 @@ class TaskAllocationEntity:
             AND ta.assigned_to = %s
             AND ta.allocation_status IN ('Assigned', 'Accepted')
             AND t.task_status != 'Cancelled'
+            AND t.task_date >= CURRENT_DATE
             ORDER BY
                 t.task_date ASC,
                 t.start_time ASC;
