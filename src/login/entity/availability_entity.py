@@ -38,3 +38,48 @@ class AvailabilityEntity:
             available_query,
             (company_id, company_member_id, task_date, start_time, end_time)
         ) is not None
+
+    @staticmethod
+    def update_schedule(
+        company_id,
+        company_member_id,
+        availability_id,
+        data
+    ):
+        query = """
+            UPDATE availability_schedules
+            SET
+                available_date = COALESCE(
+                    %s,
+                    available_date
+                ),
+                start_time = COALESCE(
+                    %s,
+                    start_time
+                ),
+                end_time = COALESCE(
+                    %s,
+                    end_time
+                ),
+                availability_status = COALESCE(
+                    %s,
+                    availability_status
+                )
+            WHERE company_id = %s
+            AND company_member_id = %s
+            AND availability_id = %s
+            RETURNING *;
+        """
+
+        return Database.execute(
+            query,
+            (
+                data.get("available_date"),
+                data.get("start_time"),
+                data.get("end_time"),
+                data.get("availability_status"),
+                company_id,
+                company_member_id,
+                availability_id
+            )
+        )
