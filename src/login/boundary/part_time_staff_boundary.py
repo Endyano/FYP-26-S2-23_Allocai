@@ -127,3 +127,54 @@ def search_assigned_tasks():
     )
 
     return jsonify(result), 200 if result["success"] else 400
+
+# Request cancellation of an accepted task allocation
+@part_time_staff_bp.route(
+    "/allocations/<allocation_id>/cancellation-request",
+    methods=["POST"]
+)
+@login_required("part_time_staff")
+def request_cancellation(allocation_id):
+    data = request.get_json() or {}
+
+    result = PartTimeStaffControl.request_cancellation(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id(),
+        allocation_id=allocation_id,
+        reason=data.get("reason")
+    )
+
+    return jsonify(result), 201 if result["success"] else 400
+
+# View the logged-in staff member's eligibility hours
+@part_time_staff_bp.route(
+    "/eligibility-hours",
+    methods=["GET"]
+)
+@login_required("part_time_staff")
+def view_eligibility_hours():
+    result = PartTimeStaffControl.view_eligibility_hours(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id()
+    )
+
+    return jsonify(result), 200 if result["success"] else 404
+
+# Submit a dispute for a working-hour record
+@part_time_staff_bp.route(
+    "/working-hours/<working_hour_id>/disputes",
+    methods=["POST"]
+)
+@login_required("part_time_staff")
+def submit_hours_dispute(working_hour_id):
+    data = request.get_json() or {}
+
+    result = PartTimeStaffControl.submit_hours_dispute(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id(),
+        working_hour_id=working_hour_id,
+        reason=data.get("reason"),
+        requested_hours=data.get("requested_hours")
+    )
+
+    return jsonify(result), 201 if result["success"] else 400
