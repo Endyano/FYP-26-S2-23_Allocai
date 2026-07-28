@@ -5,6 +5,8 @@ from entity.company_entity import CompanyEntity
 from entity.company_member_entity import CompanyMemberEntity
 from entity.invitation_entity import InvitationEntity
 from entity.department_entity import DepartmentEntity
+from entity.skillset_entity import SkillsetEntity
+from entity.role_entity import RoleEntity
 
 class CompanyAdminControl:
 
@@ -472,4 +474,336 @@ class CompanyAdminControl:
             "success": True,
             "message": "Department deleted successfully.",
             "department": department
+        }
+
+    @staticmethod
+    def create_skillset(company_id, user_id, data):
+        skillset_name = str(
+            data.get("skillset_name", "")
+        ).strip()
+
+        skillset_description = data.get(
+            "skillset_description"
+        )
+
+        if not skillset_name:
+            return {
+                "success": False,
+                "message": "Skillset name is required."
+            }
+
+        skillset = SkillsetEntity.create(
+            company_id=company_id,
+            skillset_name=skillset_name,
+            skillset_description=skillset_description
+        )
+
+        if not skillset:
+            return {
+                "success": False,
+                "message": "Skillset name is already in use."
+            }
+
+        AuditLogEntity.create(
+            company_id=company_id,
+            user_id=user_id,
+            action_type="CREATE",
+            target_table="skillsets",
+            target_record_id=str(skillset["skillset_id"]),
+            new_value={
+                "skillset_id": str(
+                    skillset["skillset_id"]
+                ),
+                "skillset_name": skillset["skillset_name"],
+                "skillset_description": skillset.get(
+                    "skillset_description"
+                ),
+                "skillset_status": skillset[
+                    "skillset_status"
+                ]
+            }
+        )
+
+        return {
+            "success": True,
+            "message": "Skillset created successfully.",
+            "skillset": skillset
+        }
+
+    @staticmethod
+    def view_skillsets(company_id):
+        # Get all available company skillsets
+        skillsets = SkillsetEntity.get_by_company(
+            company_id=company_id
+        )
+
+        return {
+            "success": True,
+            "skillsets": skillsets
+        }
+
+    @staticmethod
+    def delete_skillset(
+        company_id,
+        user_id,
+        skillset_id
+    ):
+        # Get the old value for the audit log
+        old_skillset = SkillsetEntity.get_by_id(
+            company_id=company_id,
+            skillset_id=skillset_id
+        )
+
+        if not old_skillset:
+            return {
+                "success": False,
+                "message": "Skillset was not found."
+            }
+
+        skillset = SkillsetEntity.delete(
+            company_id=company_id,
+            skillset_id=skillset_id
+        )
+
+        if not skillset:
+            return {
+                "success": False,
+                "message": (
+                    "Skillset cannot be deleted because it "
+                    "is required by an active task."
+                )
+            }
+
+        AuditLogEntity.create(
+            company_id=company_id,
+            user_id=user_id,
+            action_type="DELETE",
+            target_table="skillsets",
+            target_record_id=str(skillset_id),
+            old_value={
+                "skillset_name": old_skillset[
+                    "skillset_name"
+                ],
+                "skillset_description": old_skillset.get(
+                    "skillset_description"
+                ),
+                "skillset_status": old_skillset[
+                    "skillset_status"
+                ]
+            },
+            new_value={
+                "skillset_status": "Deleted"
+            }
+        )
+
+        return {
+            "success": True,
+            "message": "Skillset deleted successfully.",
+            "skillset": skillset
+        }
+
+    @staticmethod
+    def create_role(company_id, user_id, data):
+        role_name = str(
+            data.get("role_name", "")
+        ).strip()
+
+        role_description = data.get("role_description")
+
+        if not role_name:
+            return {
+                "success": False,
+                "message": "Role name is required."
+            }
+
+        role = RoleEntity.create(
+            company_id=company_id,
+            role_name=role_name,
+            role_description=role_description
+        )
+
+        if not role:
+            return {
+                "success": False,
+                "message": "Role name is already in use."
+            }
+
+        AuditLogEntity.create(
+            company_id=company_id,
+            user_id=user_id,
+            action_type="CREATE",
+            target_table="roles",
+            target_record_id=str(role["role_id"]),
+            new_value={
+                "role_id": str(role["role_id"]),
+                "role_name": role["role_name"],
+                "role_description": role.get(
+                    "role_description"
+                ),
+                "is_system_role": role["is_system_role"]
+            }
+        )
+
+        return {
+            "success": True,
+            "message": "Access role created successfully.",
+            "role": role
+        }
+
+    @staticmethod
+    def view_roles(company_id):
+        # Get company roles and assigned permissions
+        roles = RoleEntity.get_by_company(
+            company_id=company_id
+        )
+
+        return {
+            "success": True,
+            "roles": roles
+        }
+
+    @staticmethod
+    def update_role(company_id, user_id, role_id, data):
+        allowed_fields = {
+            "role_name",
+            "role_description",
+            "permission_ids"
+        }
+
+        if not allowed_fields.intersection(data.keys()):
+            return {
+                "success": False,
+                "message": "No valid role fields were provided."
+            }
+
+        if "role_name" in data:
+            role_name = str(data["role_name"]).strip()
+
+            if not role_name:
+                return {
+                    "success": False,
+                    "message": "Role name cannot be empty."
+                }
+
+            data["role_name"] = role_name
+
+        if "permission_ids" in data:
+            if not isinstance(data["permission_ids"], list):
+                return {
+                    "success": False,
+                    "message": "permission_ids must be a list."
+                }
+
+            # Remove duplicated permission IDs
+            data["permission_ids"] = list(
+                dict.fromkeys(data["permission_ids"])
+            )
+
+        old_role = RoleEntity.get_by_id(
+            company_id=company_id,
+            role_id=role_id
+        )
+
+        if not old_role:
+            return {
+                "success": False,
+                "message": "Role was not found."
+            }
+
+        try:
+            role = RoleEntity.update(
+                company_id=company_id,
+                role_id=role_id,
+                data=data
+            )
+        except ValueError as error:
+            return {
+                "success": False,
+                "message": str(error)
+            }
+
+        if not role:
+            return {
+                "success": False,
+                "message": "System roles cannot be updated."
+            }
+
+        AuditLogEntity.create(
+            company_id=company_id,
+            user_id=user_id,
+            action_type="UPDATE",
+            target_table="roles",
+            target_record_id=str(role_id),
+            old_value={
+                "role_name": old_role["role_name"],
+                "role_description": old_role.get(
+                    "role_description"
+                ),
+                "permissions": old_role["permissions"]
+            },
+            new_value={
+                "role_name": role["role_name"],
+                "role_description": role.get(
+                    "role_description"
+                ),
+                "permissions": role["permissions"]
+            }
+        )
+
+        return {
+            "success": True,
+            "message": "Access role updated successfully.",
+            "role": role
+        }
+
+    @staticmethod
+    def assign_role(
+        company_id,
+        user_id,
+        assigned_by,
+        company_member_id,
+        role_id
+    ):
+        if not role_id:
+            return {
+                "success": False,
+                "message": "Role ID is required."
+            }
+
+        assignment = RoleEntity.assign_to_member(
+            company_id=company_id,
+            company_member_id=company_member_id,
+            role_id=role_id,
+            assigned_by=assigned_by
+        )
+
+        if not assignment:
+            return {
+                "success": False,
+                "message": (
+                    "The employee or role was not found, "
+                    "the employee is inactive, or the role "
+                    "is already assigned."
+                )
+            }
+
+        AuditLogEntity.create(
+            company_id=company_id,
+            user_id=user_id,
+            action_type="ASSIGN_ROLE",
+            target_table="member_roles",
+            target_record_id=str(company_member_id),
+            new_value={
+                "company_member_id": str(
+                    company_member_id
+                ),
+                "role_id": str(role_id),
+                "assigned_by": str(assigned_by)
+            }
+        )
+
+        return {
+            "success": True,
+            "message": "Access role assigned successfully.",
+            "role_assignment": assignment
         }
