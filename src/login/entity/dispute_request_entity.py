@@ -39,3 +39,60 @@ class DisputeRequestEntity:
             company_id,
             dispute_request_id
         ))
+
+    @staticmethod
+    def create(
+        company_id,
+        company_member_id,
+        working_hour_id,
+        reason,
+        requested_hours
+    ):
+        query = """
+            INSERT INTO dispute_requests (
+                company_id,
+                company_member_id,
+                working_hour_id,
+                task_id,
+                reason,
+                requested_hours,
+                current_recorded_hours,
+                dispute_status,
+                created_at
+            )
+            SELECT
+                wh.company_id,
+                wh.company_member_id,
+                wh.working_hour_id,
+                wh.task_id,
+                %s,
+                %s,
+                wh.hours_worked,
+                'Pending',
+                NOW()
+            FROM working_hour_records wh
+            WHERE wh.company_id = %s
+            AND wh.company_member_id = %s
+            AND wh.working_hour_id = %s
+            AND wh.hours_worked <> %s
+            AND NOT EXISTS (
+                SELECT 1
+                FROM dispute_requests dr
+                WHERE dr.company_id = wh.company_id
+                AND dr.working_hour_id = wh.working_hour_id
+                AND dr.dispute_status = 'Pending'
+            )
+            RETURNING *;
+        """
+
+        return Database.execute(
+            query,
+            (
+                reason,
+                requested_hours,
+                company_id,
+                company_member_id,
+                working_hour_id,
+                requested_hours
+            )
+        )

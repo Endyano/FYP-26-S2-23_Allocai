@@ -1,0 +1,343 @@
+import uuid
+
+from db import Database
+from psycopg2.extras import RealDictCursor
+
+
+class RoleEntity:
+
+    @staticmethod
+    def create(
+        company_id,
+        role_name,
+        role_description=None
+    ):
+        # Generate the role UUID in Python
+        role_id = str(uuid.uuid4())
+
+        query = """
+            INSERT INTO roles (
+                role_id,
+                company_id,
+                role_name,
+                role_description,
+                is_system_role,
+                created_at
+            )
+            SELECT
+                %s,
+                %s,
+                %s,
+                %s,
+                FALSE,
+                NOW()
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM roles
+                WHERE company_id = %s
+                AND LOWER(role_name) = LOWER(%s)
+            )
+            RETURNING *;
+        """
+
+        return Database.execute(
+            query,
+            (
+                role_id,
+                company_id,
+                role_name,
+                role_description,
+                company_id,
+                role_name
+            )
+        )
+
+    @staticmethod
+    def get_by_company(company_id):
+        # Get company roles and their assigned permissions
+        query = """
+            SELECT
+                r.role_id,
+                r.company_id,
+                r.role_name,
+                r.role_description,
+                r.is_system_role,
+                r.created_at,
+                COALESCE(
+                    JSON_AGG(
+                        JSON_BUILD_OBJECT(
+                            'permission_id',
+                            p.permission_id,
+                            'permission_key',
+                            p.permission_key,
+                            'description',
+                            p.description
+                        )
+                    ) FILTER (
+                        WHERE p.permission_id IS NOT NULL
+                    ),
+                    '[]'::JSON
+                ) AS permissions
+            FROM roles r
+            LEFT JOIN role_permissions rp
+                ON rp.role_id = r.role_id
+            LEFT JOIN permissions p
+                ON p.permission_id = rp.permission_id
+            WHERE r.company_id = %s
+            GROUP BY
+                r.role_id,
+                r.company_id,
+                r.role_name,
+                r.role_description,
+                r.is_system_role,
+                r.created_at
+            ORDER BY r.role_name ASC;
+        """
+
+        return Database.fetch_all(
+            query,
+            (company_id,)
+        )
+
+    @staticmethod
+    def get_by_id(company_id, role_id):
+        query = """
+            SELECT
+                r.role_id,
+                r.company_id,
+                r.role_name,
+                r.role_description,
+                r.is_system_role,
+                r.created_at,
+                COALESCE(
+                    JSON_AGG(
+                        JSON_BUILD_OBJECT(
+                            'permission_id',
+                            p.permission_id,
+                            'permission_key',
+                            p.permission_key,
+                            'description',
+                            p.description
+                        )
+                    ) FILTER (
+                        WHERE p.permission_id IS NOT NULL
+                    ),
+                    '[]'::JSON
+                ) AS permissions
+            FROM roles r
+            LEFT JOIN role_permissions rp
+                ON rp.role_id = r.role_id
+            LEFT JOIN permissions p
+                ON p.permission_id = rp.permission_id
+            WHERE r.company_id = %s
+            AND r.role_id = %s
+            GROUP BY
+                r.role_id,
+                r.company_id,
+                r.role_name,
+                r.role_description,
+                r.is_system_role,
+                r.created_at;
+        """
+
+        return Database.fetch_one(
+            query,
+            (
+                company_id,
+                role_id
+            )
+        )
+
+    @staticmethod
+    def update(company_id, role_id, data):
+        connection = None
+        cursor = None
+
+        try:
+            connection = Database.get_connection()
+            cursor = connection.cursor(
+                cursor_factory=RealDictCursor
+            )
+
+            # Lock and check the role
+            cursor.execute(
+                """
+                SELECT *
+                FROM roles
+                WHERE company_id = %s
+                AND role_id = %s
+                AND is_system_role = FALSE
+                FOR UPDATE;
+                """,
+                (
+                    company_id,
+                    role_id
+                )
+            )
+
+            existing_role = cursor.fetchone()
+
+            if not existing_role:
+                return None
+
+            role_name = data.get("role_name")
+
+            # Prevent duplicate role names
+            if role_name:
+                cursor.execute(
+                    """
+                    SELECT role_id
+                    FROM roles
+                    WHERE company_id = %s
+                    AND LOWER(role_name) = LOWER(%s)
+                    AND role_id != %s
+                    LIMIT 1;
+                    """,
+                    (
+                        company_id,
+                        role_name,
+                        role_id
+                    )
+                )
+
+                if cursor.fetchone():
+                    raise ValueError(
+                        "Role name is already in use."
+                    )
+
+            # Update the role details
+            cursor.execute(
+                """
+                UPDATE roles
+                SET
+                    role_name = COALESCE(
+                        %s,
+                        role_name
+                    ),
+                    role_description = COALESCE(
+                        %s,
+                        role_description
+                    )
+                WHERE company_id = %s
+                AND role_id = %s;
+                """,
+                (
+                    role_name,
+                    data.get("role_description"),
+                    company_id,
+                    role_id
+                )
+            )
+
+            permission_ids = data.get("permission_ids")
+
+            # Replace permissions only when permission_ids is sent
+            if permission_ids is not None:
+                if permission_ids:
+                    cursor.execute(
+                        """
+                        SELECT permission_id
+                        FROM permissions
+                        WHERE permission_id = ANY(%s::uuid[]);
+                        """,
+                        (permission_ids,)
+                    )
+
+                    valid_permissions = cursor.fetchall()
+
+                    if len(valid_permissions) != len(permission_ids):
+                        raise ValueError(
+                            "One or more permissions are invalid."
+                        )
+
+                cursor.execute(
+                    """
+                    DELETE FROM role_permissions
+                    WHERE role_id = %s;
+                    """,
+                    (role_id,)
+                )
+
+                for permission_id in permission_ids:
+                    cursor.execute(
+                        """
+                        INSERT INTO role_permissions (
+                            role_id,
+                            permission_id
+                        )
+                        VALUES (%s, %s);
+                        """,
+                        (
+                            role_id,
+                            permission_id
+                        )
+                    )
+
+            connection.commit()
+
+        except Exception:
+            if connection:
+                connection.rollback()
+            raise
+
+        finally:
+            if cursor:
+                cursor.close()
+
+            if connection:
+                connection.close()
+
+        return RoleEntity.get_by_id(
+            company_id=company_id,
+            role_id=role_id
+        )
+
+    @staticmethod
+    def assign_to_member(
+        company_id,
+        company_member_id,
+        role_id,
+        assigned_by
+    ):
+        # Assign a company role to an active employee
+        query = """
+            INSERT INTO member_roles (
+                company_member_id,
+                role_id,
+                assigned_by,
+                assigned_at
+            )
+            SELECT
+                cm.company_member_id,
+                r.role_id,
+                %s,
+                NOW()
+            FROM company_members cm
+            JOIN roles r
+                ON r.company_id = cm.company_id
+            WHERE cm.company_id = %s
+            AND cm.company_member_id = %s
+            AND cm.member_status = 'Active'
+            AND LOWER(cm.role) IN (
+                'manager',
+                'full_time_staff',
+                'part_time_staff'
+            )
+            AND r.role_id = %s
+            ON CONFLICT (
+                company_member_id,
+                role_id
+            )
+            DO NOTHING
+            RETURNING *;
+        """
+
+        return Database.execute(
+            query,
+            (
+                assigned_by,
+                company_id,
+                company_member_id,
+                role_id
+            )
+        )
