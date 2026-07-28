@@ -163,3 +163,103 @@ def delete_department(department_id):
     )
 
     return jsonify(result), 200 if result["success"] else 400
+
+# Add a skillset to the company
+@company_admin_bp.route("/skillsets", methods=["POST"])
+@login_required("company_admin")
+def create_skillset():
+    data = request.get_json() or {}
+
+    result = CompanyAdminControl.create_skillset(
+        company_id=current_company_id(),
+        user_id=current_user_id(),
+        data=data
+    )
+
+    return jsonify(result), 201 if result["success"] else 400
+
+# View all available company skillsets
+@company_admin_bp.route("/skillsets", methods=["GET"])
+@login_required("company_admin")
+def view_skillsets():
+    result = CompanyAdminControl.view_skillsets(
+        company_id=current_company_id()
+    )
+
+    return jsonify(result), 200
+
+# Delete a company skillset
+@company_admin_bp.route(
+    "/skillsets/<skillset_id>",
+    methods=["DELETE"]
+)
+@login_required("company_admin")
+def delete_skillset(skillset_id):
+    result = CompanyAdminControl.delete_skillset(
+        company_id=current_company_id(),
+        user_id=current_user_id(),
+        skillset_id=skillset_id
+    )
+
+    return jsonify(result), 200 if result["success"] else 400
+
+# Create a custom company access role
+@company_admin_bp.route("/roles", methods=["POST"])
+@login_required("company_admin")
+def create_role():
+    data = request.get_json() or {}
+
+    result = CompanyAdminControl.create_role(
+        company_id=current_company_id(),
+        user_id=current_user_id(),
+        data=data
+    )
+
+    return jsonify(result), 201 if result["success"] else 400
+
+# View company roles and their assigned permissions
+@company_admin_bp.route("/roles", methods=["GET"])
+@login_required("company_admin")
+def view_roles():
+    result = CompanyAdminControl.view_roles(
+        company_id=current_company_id()
+    )
+
+    return jsonify(result), 200
+
+# Update a custom role and its permissions
+@company_admin_bp.route(
+    "/roles/<role_id>",
+    methods=["PUT", "PATCH"]
+)
+@login_required("company_admin")
+def update_role(role_id):
+    data = request.get_json() or {}
+
+    result = CompanyAdminControl.update_role(
+        company_id=current_company_id(),
+        user_id=current_user_id(),
+        role_id=role_id,
+        data=data
+    )
+
+    return jsonify(result), 200 if result["success"] else 400
+
+# Assign an access role to an employee
+@company_admin_bp.route(
+    "/employees/<company_member_id>/roles",
+    methods=["POST"]
+)
+@login_required("company_admin")
+def assign_role(company_member_id):
+    data = request.get_json() or {}
+
+    result = CompanyAdminControl.assign_role(
+        company_id=current_company_id(),
+        user_id=current_user_id(),
+        assigned_by=current_company_member_id(),
+        company_member_id=company_member_id,
+        role_id=data.get("role_id")
+    )
+
+    return jsonify(result), 201 if result["success"] else 400
