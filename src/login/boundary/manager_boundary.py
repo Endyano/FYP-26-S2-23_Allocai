@@ -6,6 +6,36 @@ from control.manager_control import ManagerControl
 manager_bp = Blueprint("manager", __name__, url_prefix="/api/manager")
 
 
+@manager_bp.route("/departments", methods=["GET"])
+@login_required("manager")
+def view_departments():
+    return jsonify(ManagerControl.view_departments(current_company_id()))
+
+
+@manager_bp.route("/skillsets", methods=["GET"])
+@login_required("manager")
+def view_skillsets():
+    return jsonify(ManagerControl.view_skillsets(current_company_id()))
+
+
+@manager_bp.route("/staff-skillsets", methods=["GET"])
+@login_required("manager")
+def view_staff_skillset_assignments():
+    return jsonify(ManagerControl.view_staff_skillset_assignments(current_company_id()))
+
+
+@manager_bp.route("/reports", methods=["GET"])
+@login_required("manager")
+def get_monthly_report():
+    year = request.args.get("year", type=int)
+    month = request.args.get("month", type=int)
+
+    if not year or not month:
+        return jsonify({"success": False, "message": "year and month are required."}), 400
+
+    return jsonify(ManagerControl.get_monthly_report(current_company_id(), year, month))
+
+
 @manager_bp.route("/staff", methods=["GET"])
 @login_required("manager")
 def view_staff():
@@ -24,7 +54,7 @@ def hours_dashboard():
     return jsonify(ManagerControl.get_hours_dashboard(current_company_id()))
 
 
-@manager_bp.route("/staff/<int:company_member_id>/skillsets", methods=["POST"])
+@manager_bp.route("/staff/<company_member_id>/skillsets", methods=["POST"])
 @login_required("manager")
 def assign_skillset(company_member_id):
     data = request.get_json() or {}
@@ -62,7 +92,7 @@ def view_tasks():
     ))
 
 
-@manager_bp.route("/tasks/<int:task_id>", methods=["PUT"])
+@manager_bp.route("/tasks/<task_id>", methods=["PUT"])
 @login_required("manager")
 def update_task(task_id):
     data = request.get_json() or {}
@@ -70,7 +100,7 @@ def update_task(task_id):
     return jsonify(result), 200 if result["success"] else 400
 
 
-@manager_bp.route("/tasks/<int:task_id>/cancel", methods=["PATCH"])
+@manager_bp.route("/tasks/<task_id>/cancel", methods=["PATCH"])
 @login_required("manager")
 def cancel_task(task_id):
     data = request.get_json() or {}
@@ -84,7 +114,7 @@ def cancel_task(task_id):
     return jsonify(result), 200 if result["success"] else 400
 
 
-@manager_bp.route("/tasks/<int:task_id>/assign", methods=["POST", "PATCH"])
+@manager_bp.route("/tasks/<task_id>/assign", methods=["POST", "PATCH"])
 @login_required("manager")
 def assign_task(task_id):
     data = request.get_json() or {}
@@ -104,7 +134,7 @@ def assign_task(task_id):
 def allocation_status():
     return jsonify(ManagerControl.get_allocation_status(current_company_id()))
 
-@manager_bp.route("/staff-skillsets/<int:staff_skillset_id>", methods=["PUT"])
+@manager_bp.route("/staff-skillsets/<staff_skillset_id>", methods=["PUT"])
 @login_required("manager")
 def update_staff_skillset(staff_skillset_id):
     data = request.get_json() or {}
@@ -118,7 +148,7 @@ def update_staff_skillset(staff_skillset_id):
     return jsonify(result), 200 if result["success"] else 400
 
 
-@manager_bp.route("/tasks/<int:task_id>/suggestions", methods=["GET"])
+@manager_bp.route("/tasks/<task_id>/suggestions", methods=["GET"])
 @login_required("manager")
 def allocation_suggestions(task_id):
     return jsonify(ManagerControl.get_allocation_suggestions(
@@ -133,7 +163,7 @@ def disputes():
     return jsonify(ManagerControl.get_disputes(current_company_id()))
 
 
-@manager_bp.route("/disputes/<int:dispute_request_id>/resolve", methods=["PATCH"])
+@manager_bp.route("/disputes/<dispute_request_id>/resolve", methods=["PATCH"])
 @login_required("manager")
 def resolve_dispute(dispute_request_id):
     data = request.get_json() or {}
@@ -154,7 +184,7 @@ def cancellation_requests():
     return jsonify(ManagerControl.get_cancellation_requests(current_company_id()))
 
 
-@manager_bp.route("/cancellation-requests/<int:cancellation_request_id>/resolve", methods=["PATCH"])
+@manager_bp.route("/cancellation-requests/<cancellation_request_id>/resolve", methods=["PATCH"])
 @login_required("manager")
 def resolve_cancellation(cancellation_request_id):
     data = request.get_json() or {}

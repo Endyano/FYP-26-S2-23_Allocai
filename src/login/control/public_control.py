@@ -3,6 +3,7 @@ from entity.faq_entity import FaqEntity
 from entity.review_entity import ReviewEntity
 from entity.subscription_entity import SubscriptionEntity
 from entity.user_entity import UserEntity
+from supabase_auth import SupabaseAuth
 
 
 class PublicControl:
@@ -92,17 +93,27 @@ class PublicControl:
                 "message": "Email is already registered."
             }
 
-        user = UserEntity.create_registered_user(
-            full_name=data.get("full_name"),
+        status_code, result = SupabaseAuth.sign_up(
             email=data.get("email"),
             password=data.get("password"),
+            full_name=data.get("full_name"),
             phone_number=data.get("phone_number")
         )
 
+        if status_code >= 400:
+            return {
+                "success": False,
+                "message": (
+                    result.get("error_description")
+                    or result.get("msg")
+                    or "Registration failed."
+                )
+            }
+
         return {
             "success": True,
-            "message": "Account registered successfully.",
-            "user": user
+            "message": "Account registered. Check your email for a verification code.",
+            "email": data.get("email")
         }
 
     @staticmethod

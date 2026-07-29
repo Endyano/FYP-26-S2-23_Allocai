@@ -70,24 +70,24 @@ class DepartmentEntity:
             (company_id,)
         )
 
-@staticmethod
-def get_by_id(company_id, department_id):
-    # Get one department belonging to the company
-    query = """
-        SELECT *
-        FROM departments
-        WHERE company_id = %s
-        AND department_id = %s
-        AND department_status != 'Deleted';
-    """
+    @staticmethod
+    def get_by_id(company_id, department_id):
+        # Get one department belonging to the company
+        query = """
+            SELECT *
+            FROM departments
+            WHERE company_id = %s
+            AND department_id = %s
+            AND department_status != 'Deleted';
+        """
 
-    return Database.fetch_one(
-        query,
-        (
-            company_id,
-            department_id
+        return Database.fetch_one(
+            query,
+            (
+                company_id,
+                department_id
+            )
         )
-    )
 
     @staticmethod
     def update(company_id, department_id, data):

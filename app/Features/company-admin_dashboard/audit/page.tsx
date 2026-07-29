@@ -1,27 +1,28 @@
 'use client';
 
-import { useState } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api';
 
 type AuditEntry = {
-  id: string;
-  user_name: string;
-  user_email: string;
-  action: string;
-  entity_type: string;
-  entity_name: string;
-  before: Record<string, unknown> | null;
-  after: Record<string, unknown> | null;
+  audit_log_id: string;
+  changed_by_name: string | null;
+  changed_by_email: string | null;
+  action_type: string;
+  target_table: string;
+  target_record_id: string | null;
+  old_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
   created_at: string;
 };
 
+type Employee = { user_id: string; full_name: string };
+
 const ACTION_STYLES: Record<string, string> = {
-  created:  'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
-  updated:  'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/20',
-  deleted:  'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20',
-  suspended:'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
-  assigned: 'bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-600/20',
+  create:  'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
+  update:  'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/20',
+  delete:  'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20',
+  suspend: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
+  assign:  'bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-600/20',
 };
 
 function formatDate(d: string) {
@@ -64,14 +65,9 @@ function DiffView({ before, after }: { before: Record<string, unknown> | null; a
 }
 
 export default function AuditPage() {
-  const [entries, setEntries] = useState<AuditEntry[]>([
-    { id: 'A001', action: 'UPDATE', entity_type: 'User', entity_name: 'Mei Lin Chen', user_name: 'Company Admin', user_email: 'admin@harbourfoods.sg', before: { is_suspended: false }, after: { is_suspended: true }, created_at: '2026-06-24T10:32:00' },
-    { id: 'A002', action: 'CREATE', entity_type: 'Department', entity_name: 'Quality Control', user_name: 'Company Admin', user_email: 'admin@harbourfoods.sg', before: {}, after: { name: 'Quality Control' }, created_at: '2026-06-23T14:15:00' },
-    { id: 'A003', action: 'UPDATE', entity_type: 'Company Profile', entity_name: '', user_name: 'Company Admin', user_email: 'admin@harbourfoods.sg', before: { phone: '+65 6111 2222' }, after: { phone: '+65 6234 5678' }, created_at: '2026-06-22T09:00:00' },
-    { id: 'A004', action: 'DELETE', entity_type: 'User', entity_name: '', user_name: 'Company Admin', user_email: 'admin@harbourfoods.sg', before: { email: 'old@harbourfoods.sg' }, after: {}, created_at: '2026-06-20T16:45:00' },
-    { id: 'A005', action: 'CREATE', entity_type: 'Skillset', entity_name: 'Customer Service', user_name: 'Company Admin', user_email: 'admin@harbourfoods.sg', before: {}, after: { name: 'Customer Service' }, created_at: '2026-06-18T11:20:00' },
-  ]);
-  const [loading] = useState(false);
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [search, setSearch] = useState('');
@@ -81,15 +77,37 @@ export default function AuditPage() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const users = Array.from(new Set(entries.map(e => e.user_name).filter(Boolean)));
+  async function loadEmployees() {
+    const result = await apiFetch<{ employees: Employee[] }>('/api/company-admin/employees');
+    if (result.success) setEmployees(result.employees || []);
+  }
+
+  async function loadLogs() {
+    setLoading(true);
+    setError('');
+    const params = new URLSearchParams();
+    if (userFilter) params.set('user_id', userFilter);
+    if (dateFrom) params.set('start_date', dateFrom);
+    if (dateTo) params.set('end_date', dateTo);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const result = await apiFetch<{ audit_logs: AuditEntry[] }>(`/api/company-admin/audit-logs${query}`);
+    if (result.success) setEntries(result.audit_logs || []);
+    else setError(result.message || 'Could not load audit log.');
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadEmployees();
+    loadLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = entries.filter(e => {
     const q = search.toLowerCase();
     return (
-      e.user_name?.toLowerCase().includes(q) ||
-      e.action?.toLowerCase().includes(q) ||
-      e.entity_type?.toLowerCase().includes(q) ||
-      e.entity_name?.toLowerCase().includes(q)
+      e.changed_by_name?.toLowerCase().includes(q) ||
+      e.action_type?.toLowerCase().includes(q) ||
+      e.target_table?.toLowerCase().includes(q)
     );
   });
 
@@ -128,17 +146,17 @@ export default function AuditPage() {
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400"
             >
               <option value="">All users</option>
-              {users.map(u => <option key={u}>{u}</option>)}
+              {employees.map(u => <option key={u.user_id} value={u.user_id}>{u.full_name}</option>)}
             </select>
           </div>
         </div>
         <div className="mt-3 flex gap-2">
-          <button onClick={() => {}}
+          <button onClick={loadLogs}
             className="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm"
           >
             Apply Filters
           </button>
-          <button onClick={() => { setDateFrom(''); setDateTo(''); setUserFilter(''); setSearch(''); }}
+          <button onClick={() => { setDateFrom(''); setDateTo(''); setUserFilter(''); setSearch(''); loadLogs(); }}
             className="rounded-xl bg-white border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
           >
             Reset
@@ -162,40 +180,39 @@ export default function AuditPage() {
         ) : (
           <div className="divide-y divide-slate-100">
             {filtered.map(entry => (
-              <div key={entry.id} className="px-6 py-4 hover:bg-slate-50 transition-colors">
+              <div key={entry.audit_log_id} className="px-6 py-4 hover:bg-slate-50 transition-colors">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3 min-w-0">
                     <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700 flex-shrink-0 mt-0.5">
-                      {entry.user_name?.charAt(0).toUpperCase()}
+                      {entry.changed_by_name?.charAt(0).toUpperCase() || '?'}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-slate-900 text-sm">{entry.user_name}</span>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${ACTION_STYLES[entry.action?.toLowerCase()] || 'bg-slate-100 text-slate-600'}`}>
-                          {entry.action}
+                        <span className="font-semibold text-slate-900 text-sm">{entry.changed_by_name || 'Unknown'}</span>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${ACTION_STYLES[entry.action_type?.toLowerCase()] || 'bg-slate-100 text-slate-600'}`}>
+                          {entry.action_type}
                         </span>
                         <span className="text-slate-500 text-sm">
-                          <span className="font-medium text-slate-700">{entry.entity_type}</span>
-                          {entry.entity_name && <span> · {entry.entity_name}</span>}
+                          <span className="font-medium text-slate-700 capitalize">{entry.target_table?.replace(/_/g, ' ')}</span>
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 mt-0.5">{entry.user_email} · {formatDate(entry.created_at)}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{entry.changed_by_email} · {formatDate(entry.created_at)}</p>
                     </div>
                   </div>
-                  {(entry.before || entry.after) && (
+                  {(entry.old_value || entry.new_value) && (
                     <button
-                      onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+                      onClick={() => setExpandedId(expandedId === entry.audit_log_id ? null : entry.audit_log_id)}
                       className="flex-shrink-0 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
                     >
-                      {expandedId === entry.id ? 'Hide' : 'Details'}
+                      {expandedId === entry.audit_log_id ? 'Hide' : 'Details'}
                     </button>
                   )}
                 </div>
 
-                {expandedId === entry.id && (
+                {expandedId === entry.audit_log_id && (
                   <div className="mt-4 ml-11 rounded-xl bg-slate-50 border border-slate-200 p-4">
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Before / After</p>
-                    <DiffView before={entry.before} after={entry.after} />
+                    <DiffView before={entry.old_value} after={entry.new_value} />
                   </div>
                 )}
               </div>

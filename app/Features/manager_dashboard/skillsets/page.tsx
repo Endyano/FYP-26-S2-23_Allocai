@@ -1,74 +1,74 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { apiFetch, apiPost } from '@/lib/api';
 
-type Staff = { id: string; full_name: string; email: string; skillsets: string[] };
-type Skillset = { id: string; name: string; category: string };
+type Staff = { company_member_id: string; full_name: string };
+type Skillset = { skillset_id: string; skillset_name: string };
+type Assignment = { staff_skillset_id: string; company_member_id: string; full_name: string; skillset_id: string; skillset_name: string };
 
 export default function SkillsetsPage() {
-  const [staff, setStaff] = useState<Staff[]>([
-    { id: 'S001', full_name: 'Ahmad Farid', email: 'farid@harbourfoods.sg', skillsets: ['SK01', 'SK03'] },
-    { id: 'S002', full_name: 'Wei Jie Lim', email: 'weijie@harbourfoods.sg', skillsets: ['SK02', 'SK04'] },
-    { id: 'S003', full_name: 'Rajan Kumar', email: 'rajan@harbourfoods.sg', skillsets: ['SK05'] },
-    { id: 'S004', full_name: 'Priya Nair', email: 'priya@harbourfoods.sg', skillsets: [] },
-  ]);
-  const [skillsets, setSkillsets] = useState<Skillset[]>([
-    { id: 'SK01', name: 'Forklift Operation', category: 'Warehouse' },
-    { id: 'SK02', name: 'Cold Chain Management', category: 'Logistics' },
-    { id: 'SK03', name: 'Food Safety Handling', category: 'Quality Control' },
-    { id: 'SK04', name: 'Route Planning', category: 'Logistics' },
-    { id: 'SK05', name: 'Inventory Counting', category: 'Warehouse' },
-    { id: 'SK06', name: 'Customer Service', category: 'Operations' },
-  ]);
-  const [loading] = useState(false);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [skillsets, setSkillsets] = useState<Skillset[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
   const [assignModal, setAssignModal] = useState<Staff | null>(null);
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedSkillset, setSelectedSkillset] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState('');
 
+  async function loadAll() {
+    setLoading(true);
+    setError('');
+    const [staffRes, skillRes, assignRes] = await Promise.all([
+      apiFetch<{ staff: Staff[] }>('/api/manager/staff'),
+      apiFetch<{ skillsets: Skillset[] }>('/api/manager/skillsets'),
+      apiFetch<{ assignments: Assignment[] }>('/api/manager/staff-skillsets'),
+    ]);
+    if (staffRes.success) setStaff(staffRes.staff || []);
+    else setError(staffRes.message || 'Could not load staff.');
+    if (skillRes.success) setSkillsets(skillRes.skillsets || []);
+    if (assignRes.success) setAssignments(assignRes.assignments || []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
   function openAssign(member: Staff) {
     setAssignModal(member);
-    setSelectedSkills(member.skillsets || []);
+    setSelectedSkillset('');
     setSaveError('');
     setSaveSuccess('');
   }
 
-  function toggleSkill(skillId: string) {
-    setSelectedSkills(prev =>
-      prev.includes(skillId) ? prev.filter(s => s !== skillId) : [...prev, skillId]
-    );
-  }
-
-  async function saveSkills() {
-    if (!assignModal) return;
+  async function saveSkill() {
+    if (!assignModal || !selectedSkillset) return;
     setSaving(true);
     setSaveError('');
     try {
-      const res = await fetch(`${API_URL}/api/manager/staff/${assignModal.id}/skillsets`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skillset_ids: selectedSkills }),
-      });
-      const d = await res.json();
-      if (d.success) {
-        setStaff(prev => prev.map(s => s.id === assignModal.id ? { ...s, skillsets: selectedSkills } : s));
-        setSaveSuccess('Skillsets updated.');
+      const result = await apiPost(
+        `/api/manager/staff/${assignModal.company_member_id}/skillsets`,
+        { skillset_id: selectedSkillset }
+      );
+      if (result.success) {
+        setSaveSuccess('Skillset assigned.');
         setTimeout(() => { setAssignModal(null); setSaveSuccess(''); }, 1200);
+        await loadAll();
       } else {
-        setSaveError(d.message || 'Failed to save.');
+        setSaveError(result.message || 'Failed to save.');
       }
     } catch { setSaveError('Could not reach the server.'); }
     finally { setSaving(false); }
   }
 
   const filtered = staff.filter(s =>
-    s.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    s.email.toLowerCase().includes(search.toLowerCase())
+    s.full_name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -86,29 +86,28 @@ export default function SkillsetsPage() {
       <div className="rounded-2xl bg-white shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-5 border-b border-slate-100">
           <h2 className="text-base font-bold text-slate-900">Staff Skillset Assignments</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Assign or update skillsets for each staff member.</p>
+          <p className="text-sm text-slate-500 mt-0.5">Assign skillsets to staff members.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-4 font-semibold">Staff Member</th>
-                <th className="px-6 py-4 font-semibold">Email</th>
                 <th className="px-6 py-4 font-semibold">Assigned Skillsets</th>
                 <th className="px-6 py-4 font-semibold text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
               {loading ? (
-                <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-400 animate-pulse">Loading...</td></tr>
+                <tr><td colSpan={3} className="px-6 py-12 text-center text-slate-400 animate-pulse">Loading...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-500">No staff found.</td></tr>
+                <tr><td colSpan={3} className="px-6 py-12 text-center text-slate-500">No staff found.</td></tr>
               ) : filtered.map(member => {
-                const assignedNames = (member.skillsets || [])
-                  .map(id => skillsets.find(s => s.id === id)?.name)
-                  .filter(Boolean);
+                const assignedNames = assignments
+                  .filter(a => a.company_member_id === member.company_member_id)
+                  .map(a => a.skillset_name);
                 return (
-                  <tr key={member.id} className="hover:bg-slate-50 transition-colors group">
+                  <tr key={member.company_member_id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-6 py-4 font-medium text-slate-900">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-700">
@@ -117,7 +116,6 @@ export default function SkillsetsPage() {
                         {member.full_name}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-500">{member.email}</td>
                     <td className="px-6 py-4">
                       {assignedNames.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
@@ -132,7 +130,7 @@ export default function SkillsetsPage() {
                     <td className="px-6 py-4 text-right">
                       <button onClick={() => openAssign(member)}
                         className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
-                      >Assign / Update</button>
+                      >Assign Skillset</button>
                     </td>
                   </tr>
                 );
@@ -148,7 +146,7 @@ export default function SkillsetsPage() {
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
               <div>
-                <h3 className="text-xl font-bold text-slate-900">Assign Skillsets</h3>
+                <h3 className="text-xl font-bold text-slate-900">Assign Skillset</h3>
                 <p className="text-sm text-slate-500 mt-1 font-semibold text-slate-700">{assignModal.full_name}</p>
               </div>
               <button onClick={() => setAssignModal(null)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-full p-2 transition-colors border border-slate-200">
@@ -158,25 +156,19 @@ export default function SkillsetsPage() {
             {skillsets.length === 0 ? (
               <p className="text-slate-500 text-sm text-center py-4">No skillsets available. Add them in Company Admin.</p>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {skillsets.map(skill => (
-                  <label key={skill.id} className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer transition-all text-sm font-medium ${
-                    selectedSkills.includes(skill.id)
-                      ? 'border-rose-400 bg-rose-50 text-rose-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                  }`}>
-                    <input type="checkbox" checked={selectedSkills.includes(skill.id)} onChange={() => toggleSkill(skill.id)} className="accent-rose-600" />
-                    <span>{skill.name}</span>
-                  </label>
-                ))}
-              </div>
+              <select value={selectedSkillset} onChange={e => setSelectedSkillset(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-rose-400 focus:outline-none transition-all"
+              >
+                <option value="">— Select a skillset —</option>
+                {skillsets.map(skill => <option key={skill.skillset_id} value={skill.skillset_id}>{skill.skillset_name}</option>)}
+              </select>
             )}
             {saveError && <p className="mt-3 text-sm text-rose-600 font-medium">{saveError}</p>}
             {saveSuccess && <p className="mt-3 text-sm text-emerald-600 font-medium">{saveSuccess}</p>}
             <div className="mt-6 flex gap-3">
-              <button onClick={saveSkills} disabled={saving}
+              <button onClick={saveSkill} disabled={saving || !selectedSkillset}
                 className="rounded-xl bg-rose-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 shadow-sm transition-colors disabled:opacity-60"
-              >{saving ? 'Saving...' : 'Save Skillsets'}</button>
+              >{saving ? 'Saving...' : 'Assign'}</button>
               <button onClick={() => setAssignModal(null)}
                 className="rounded-xl bg-white border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
               >Cancel</button>

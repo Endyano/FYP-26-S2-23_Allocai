@@ -1,0 +1,135 @@
+from entity.audit_log_entity import AuditLogEntity
+from entity.company_entity import CompanyEntity
+from entity.review_entity import ReviewEntity
+from entity.subscription_entity import SubscriptionEntity
+
+
+class PlatformAdminControl:
+
+    @staticmethod
+    def view_companies():
+        return {
+            "success": True,
+            "companies": CompanyEntity.get_all()
+        }
+
+    @staticmethod
+    def suspend_company(company_id, user_id):
+        company = CompanyEntity.update_status(company_id, "suspended")
+
+        if not company:
+            return {
+                "success": False,
+                "message": "Company account was not found."
+            }
+
+        return {
+            "success": True,
+            "message": "Company account suspended successfully.",
+            "company": company
+        }
+
+    @staticmethod
+    def delete_company(company_id, user_id):
+        company = CompanyEntity.update_status(company_id, "cancelled")
+
+        if not company:
+            return {
+                "success": False,
+                "message": "Company account was not found."
+            }
+
+        return {
+            "success": True,
+            "message": "Company account cancelled successfully.",
+            "company": company
+        }
+
+    @staticmethod
+    def view_subscription_plans():
+        return {
+            "success": True,
+            "plans": SubscriptionEntity.get_all_plans()
+        }
+
+    @staticmethod
+    def create_subscription_plan(data):
+        required_fields = ["plan_name", "plan_price", "staff_cap"]
+
+        for field in required_fields:
+            if data.get(field) is None:
+                return {
+                    "success": False,
+                    "message": f"{field} is required."
+                }
+
+        plan = SubscriptionEntity.create_plan(data)
+
+        return {
+            "success": True,
+            "message": "Subscription plan created successfully.",
+            "plan": plan
+        }
+
+    @staticmethod
+    def update_subscription_plan(subscription_plan_id, data):
+        plan = SubscriptionEntity.update_plan(subscription_plan_id, data)
+
+        if not plan:
+            return {
+                "success": False,
+                "message": "Subscription plan was not found."
+            }
+
+        return {
+            "success": True,
+            "message": "Subscription plan updated successfully.",
+            "plan": plan
+        }
+
+    @staticmethod
+    def view_reviews():
+        return {
+            "success": True,
+            "reviews": ReviewEntity.get_all_reviews()
+        }
+
+    @staticmethod
+    def moderate_review(review_id, review_status):
+        if review_status not in ["published", "rejected", "pending"]:
+            return {
+                "success": False,
+                "message": "Review status must be published, rejected, or pending."
+            }
+
+        review = ReviewEntity.update_status(review_id, review_status)
+
+        if not review:
+            return {
+                "success": False,
+                "message": "Review was not found."
+            }
+
+        return {
+            "success": True,
+            "message": "Review moderated successfully.",
+            "review": review
+        }
+
+    @staticmethod
+    def view_analytics():
+        return {
+            "success": True,
+            "analytics": {
+                "companies": CompanyEntity.get_company_status_summary(),
+                "subscriptions": SubscriptionEntity.get_subscription_summary(),
+                "reviews": ReviewEntity.get_review_status_summary()
+            }
+        }
+
+    @staticmethod
+    def view_audit_logs():
+        return {
+            "success": True,
+            "audit_logs": AuditLogEntity.get_recent_logs()
+        }

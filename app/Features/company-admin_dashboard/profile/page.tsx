@@ -1,57 +1,72 @@
 'use client';
 
-import { useState } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api';
 
 type CompanyProfile = {
   company_name: string;
-  industry: string;
-  address: string;
-  phone: string;
-  email: string;
-  website: string;
-  description: string;
+  industry: string | null;
+  company_email: string | null;
+  company_phone: string | null;
+  company_address: string | null;
 };
 
-const MOCK_PROFILE: CompanyProfile = {
-  company_name: 'Harbour Foods Pte. Ltd.',
-  industry: 'Food & Beverage',
-  email: 'admin@harbourfoods.sg',
-  phone: '+65 6234 5678',
-  website: 'https://www.harbourfoods.sg',
-  address: 'Block 5 Tuas South Avenue 14, Singapore 637557',
-  description: 'Leading food distribution company serving the Singapore market since 2010.',
+const EMPTY_PROFILE: CompanyProfile = {
+  company_name: '',
+  industry: '',
+  company_email: '',
+  company_phone: '',
+  company_address: '',
 };
 
 export default function CompanyProfilePage() {
-  const [profile, setProfile] = useState<CompanyProfile>(MOCK_PROFILE);
-  const [form, setForm] = useState<CompanyProfile>(MOCK_PROFILE);
-  const [loading] = useState(false);
+  const [profile, setProfile] = useState<CompanyProfile>(EMPTY_PROFILE);
+  const [form, setForm] = useState<CompanyProfile>(EMPTY_PROFILE);
+  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  async function loadProfile() {
+    setLoading(true);
+    const result = await apiFetch<{ company: CompanyProfile }>('/api/company-admin/company-profile');
+    if (result.success && result.company) {
+      const loaded = {
+        company_name: result.company.company_name || '',
+        industry: result.company.industry || '',
+        company_email: result.company.company_email || '',
+        company_phone: result.company.company_phone || '',
+        company_address: result.company.company_address || '',
+      };
+      setProfile(loaded);
+      setForm(loaded);
+    } else {
+      setError(result.message || 'Could not load company profile.');
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
 
   async function handleSave() {
     setSaving(true);
     setError('');
     setSuccess('');
     try {
-      const res = await fetch(`${API_URL}/api/company-admin/profile`, {
+      const result = await apiFetch<{ company: CompanyProfile }>('/api/company-admin/company-profile', {
         method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      const d = await res.json();
-      if (d.success) {
-        setProfile(d.profile ?? form);
+      if (result.success) {
+        setProfile(result.company ?? form);
         setEditing(false);
         setSuccess('Company profile updated successfully.');
         setTimeout(() => setSuccess(''), 3000);
       } else {
-        setError(d.message || 'Failed to save.');
+        setError(result.message || 'Failed to save.');
       }
     } catch {
       setError('Could not reach the server.');
@@ -72,7 +87,7 @@ export default function CompanyProfilePage() {
       {editing ? (
         <input
           type={type}
-          value={form[key]}
+          value={form[key] || ''}
           placeholder={placeholder}
           onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
           className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
@@ -97,7 +112,7 @@ export default function CompanyProfilePage() {
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Company Profile</h2>
-            <p className="text-sm text-slate-500 mt-0.5">View and update your organisation's details.</p>
+            <p className="text-sm text-slate-500 mt-0.5">View and update your organisation&apos;s details.</p>
           </div>
           {!editing ? (
             <button
@@ -132,23 +147,10 @@ export default function CompanyProfilePage() {
           <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
             {field('company_name', 'Company Name', 'text', 'e.g. Harbour Foods Pte. Ltd.')}
             {field('industry', 'Industry', 'text', 'e.g. Food & Beverage')}
-            {field('email', 'Company Email', 'email', 'admin@company.sg')}
-            {field('phone', 'Phone Number', 'tel', '+65 6XXX XXXX')}
-            {field('website', 'Website', 'url', 'https://www.company.com')}
-            {field('address', 'Address', 'text', 'Street, City, State')}
+            {field('company_email', 'Company Email', 'email', 'admin@company.sg')}
+            {field('company_phone', 'Phone Number', 'tel', '+65 6XXX XXXX')}
             <div className="md:col-span-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Description</label>
-              {editing ? (
-                <textarea
-                  value={form.description}
-                  placeholder="Brief description of your company..."
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  rows={3}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none"
-                />
-              ) : (
-                <p className="mt-1 text-slate-800 font-medium">{profile.description || <span className="text-slate-400 italic">Not set</span>}</p>
-              )}
+              {field('company_address', 'Address', 'text', 'Street, City, State')}
             </div>
           </div>
         )}

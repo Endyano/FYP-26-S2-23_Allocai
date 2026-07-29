@@ -16,6 +16,13 @@ company_admin_bp = Blueprint(
     url_prefix="/api/company-admin"
 )
 
+# View all available permissions
+@company_admin_bp.route("/permissions", methods=["GET"])
+@login_required("company_admin")
+def view_permissions():
+    return jsonify(CompanyAdminControl.view_permissions())
+
+
 # View the logged-in admin's company profile
 @company_admin_bp.route("/company-profile", methods=["GET"])
 @login_required("company_admin")

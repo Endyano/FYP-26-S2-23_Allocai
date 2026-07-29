@@ -42,7 +42,7 @@ def update_profile():
 
 # Update the logged-in staff member's availability
 @part_time_staff_bp.route(
-    "/availability/<int:availability_id>",
+    "/availability/<availability_id>",
     methods=["PUT", "PATCH"]
 )
 @login_required("part_time_staff")
@@ -60,7 +60,7 @@ def update_availability(availability_id):
 
 # Accept or decline an allocation
 @part_time_staff_bp.route(
-    "/allocations/<int:allocation_id>/respond",
+    "/allocations/<allocation_id>/respond",
     methods=["PATCH"]
 )
 @login_required("part_time_staff")
@@ -78,7 +78,7 @@ def respond_to_allocation(allocation_id):
 
 # Mark an accepted allocation as completed
 @part_time_staff_bp.route(
-    "/allocations/<int:allocation_id>/complete",
+    "/allocations/<allocation_id>/complete",
     methods=["PATCH"]
 )
 @login_required("part_time_staff")

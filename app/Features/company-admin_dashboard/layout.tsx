@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api';
 
 const NAV = [
   {
@@ -64,41 +65,29 @@ export default function CompanyAdminLayout({ children }: { children: React.React
   const [greeting, setGreeting] = useState('Welcome back');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  const parseUserDisplayName = (raw: string | null) => {
-    if (!raw) return null;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        if (typeof parsed.fullName === 'string' && parsed.fullName.trim()) return parsed.fullName;
-        if (typeof parsed.name === 'string' && parsed.name.trim()) return parsed.name;
-        if (typeof parsed.userName === 'string' && parsed.userName.trim()) return parsed.userName;
-      }
-    } catch {
-      // raw string fallback
-    }
-    return raw;
-  };
-
   useEffect(() => {
-    const savedUser = localStorage.getItem('allocai_user');
-    if (!savedUser) {
-      router.push('/Features/login');
-    } else {
-      const displayName = parseUserDisplayName(savedUser) || 'User';
-      setUserName(displayName);
+    async function checkSession() {
+      const result = await apiFetch<{ full_name?: string; role?: string }>('/api/auth/session');
+
+      if (!result.success || result.role !== 'company_admin') {
+        router.push('/Features/login');
+        return;
+      }
+
+      setUserName(result.full_name || 'User');
       const hour = new Date().getHours();
       if (hour < 12) setGreeting('Good morning');
       else if (hour < 18) setGreeting('Good afternoon');
       else setGreeting('Good evening');
     }
+
+    checkSession();
   }, [router]);
 
   const confirmLogout = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/logout`, { method: 'POST', credentials: 'include' });
+      await apiFetch('/api/auth/logout', { method: 'POST' });
     } catch {}
-    localStorage.removeItem('allocai_user');
-    localStorage.removeItem('allocai_route');
     router.push('/');
   };
 

@@ -1,19 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { useEffect, useState } from 'react';
+import { apiFetch, apiPost } from '@/lib/api';
 
 type Skillset = {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  staff_count: number;
+  skillset_id: string;
+  skillset_name: string;
+  skillset_description: string | null;
+  skillset_status: string;
   created_at: string;
 };
 
-const EMPTY_FORM = { name: '', description: '', category: '' };
+const EMPTY_FORM = { skillset_name: '', skillset_description: '' };
 
 function formatDate(d: string) {
   if (!d) return '—';
@@ -21,21 +19,12 @@ function formatDate(d: string) {
 }
 
 export default function SkillsetsPage() {
-  const [skillsets, setSkillsets] = useState<Skillset[]>([
-    { id: 'SK01', name: 'Forklift Operation', category: 'Warehouse', description: 'Certified forklift driving for warehouse operations.', staff_count: 4, created_at: '2025-02-01' },
-    { id: 'SK02', name: 'Cold Chain Management', category: 'Logistics', description: 'Handling temperature-sensitive food products during transit.', staff_count: 3, created_at: '2025-02-01' },
-    { id: 'SK03', name: 'Food Safety Handling', category: 'Quality Control', description: 'Knowledge of food safety standards and hygiene practices.', staff_count: 6, created_at: '2025-03-10' },
-    { id: 'SK04', name: 'Route Planning', category: 'Logistics', description: 'Optimising delivery routes to reduce travel time.', staff_count: 2, created_at: '2025-04-15' },
-    { id: 'SK05', name: 'Inventory Counting', category: 'Warehouse', description: 'Accurate stock counting and reconciliation.', staff_count: 5, created_at: '2025-05-20' },
-    { id: 'SK06', name: 'Customer Service', category: 'Operations', description: 'Communication and customer-facing service skills.', staff_count: 3, created_at: '2025-06-01' },
-  ]);
-  const [loading] = useState(false);
+  const [skillsets, setSkillsets] = useState<Skillset[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('All');
 
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<Skillset | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -43,44 +32,36 @@ export default function SkillsetsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  async function loadSkillsets() {
+    setLoading(true);
+    setError('');
+    const result = await apiFetch<{ skillsets: Skillset[] }>('/api/company-admin/skillsets');
+    if (result.success) setSkillsets(result.skillsets || []);
+    else setError(result.message || 'Could not load skillsets.');
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadSkillsets();
+  }, []);
+
   function openCreate() {
-    setEditing(null);
     setForm(EMPTY_FORM);
     setFormError('');
     setShowModal(true);
   }
 
-  function openEdit(skill: Skillset) {
-    setEditing(skill);
-    setForm({ name: skill.name, description: skill.description, category: skill.category });
-    setFormError('');
-    setShowModal(true);
-  }
-
   async function handleSave() {
-    if (!form.name.trim()) { setFormError('Skillset name is required.'); return; }
+    if (!form.skillset_name.trim()) { setFormError('Skillset name is required.'); return; }
     setSaving(true);
     setFormError('');
     try {
-      const url = editing
-        ? `${API_URL}/api/company-admin/skillsets/${editing.id}`
-        : `${API_URL}/api/company-admin/skillsets`;
-      const res = await fetch(url, {
-        method: editing ? 'PUT' : 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      const d = await res.json();
-      if (d.success) {
-        if (editing) {
-          setSkillsets(prev => prev.map(s => s.id === editing.id ? d.skillset : s));
-        } else {
-          setSkillsets(prev => [d.skillset, ...prev]);
-        }
+      const result = await apiPost<{ skillset: Skillset }>('/api/company-admin/skillsets', form);
+      if (result.success) {
         setShowModal(false);
+        await loadSkillsets();
       } else {
-        setFormError(d.message || 'Failed to save.');
+        setFormError(result.message || 'Failed to save.');
       }
     } catch {
       setFormError('Could not reach the server.');
@@ -92,11 +73,9 @@ export default function SkillsetsPage() {
   async function deleteSkillset(id: string) {
     setDeletingId(id);
     try {
-      const res = await fetch(`${API_URL}/api/company-admin/skillsets/${id}`, {
-        method: 'DELETE', credentials: 'include',
-      });
-      const d = await res.json();
-      if (d.success) setSkillsets(prev => prev.filter(s => s.id !== id));
+      const result = await apiFetch(`/api/company-admin/skillsets/${id}`, { method: 'DELETE' });
+      if (result.success) setSkillsets(prev => prev.filter(s => s.skillset_id !== id));
+      else setError(result.message || 'Could not delete skillset.');
     } catch {}
     finally {
       setDeletingId(null);
@@ -104,14 +83,10 @@ export default function SkillsetsPage() {
     }
   }
 
-  const categories = ['All', ...Array.from(new Set(skillsets.map(s => s.category).filter(Boolean)))];
-
-  const filtered = skillsets.filter(s => {
-    const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.description || '').toLowerCase().includes(search.toLowerCase());
-    const matchCat = categoryFilter === 'All' || s.category === categoryFilter;
-    return matchSearch && matchCat;
-  });
+  const filtered = skillsets.filter(s =>
+    s.skillset_name.toLowerCase().includes(search.toLowerCase()) ||
+    (s.skillset_description || '').toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
@@ -128,13 +103,6 @@ export default function SkillsetsPage() {
             className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
           />
         </div>
-        {categories.length > 1 && (
-          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
-            className="rounded-2xl bg-white border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:border-indigo-400"
-          >
-            {categories.map(c => <option key={c}>{c}</option>)}
-          </select>
-        )}
         <button onClick={openCreate}
           className="flex items-center gap-2 rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-indigo-700 transition-colors whitespace-nowrap"
         >
@@ -152,45 +120,31 @@ export default function SkillsetsPage() {
             <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-4 font-semibold">Skillset</th>
-                <th className="px-6 py-4 font-semibold">Category</th>
                 <th className="px-6 py-4 font-semibold">Description</th>
-                <th className="px-6 py-4 font-semibold">Staff with Skill</th>
                 <th className="px-6 py-4 font-semibold">Created</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
               {loading ? (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 animate-pulse">Loading skillsets...</td></tr>
+                <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-400 animate-pulse">Loading skillsets...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-500">No skillsets found.</td></tr>
+                <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-500">No skillsets found.</td></tr>
               ) : filtered.map(skill => (
-                <tr key={skill.id} className="hover:bg-slate-50 transition-colors group">
+                <tr key={skill.skillset_id} className="hover:bg-slate-50 transition-colors group">
                   <td className="px-6 py-4 font-semibold text-slate-900">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center text-xs font-bold text-amber-700">
-                        {skill.name?.charAt(0).toUpperCase()}
+                        {skill.skillset_name?.charAt(0).toUpperCase()}
                       </div>
-                      {skill.name}
+                      {skill.skillset_name}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    {skill.category
-                      ? <span className="rounded-full bg-amber-50 text-amber-700 px-2.5 py-1 text-xs font-semibold">{skill.category}</span>
-                      : <span className="text-slate-400 italic text-xs">Uncategorised</span>
-                    }
-                  </td>
-                  <td className="px-6 py-4 text-slate-500 max-w-xs truncate">{skill.description || '—'}</td>
-                  <td className="px-6 py-4 text-slate-600">{skill.staff_count ?? '—'}</td>
+                  <td className="px-6 py-4 text-slate-500 max-w-xs truncate">{skill.skillset_description || '—'}</td>
                   <td className="px-6 py-4 text-slate-500 text-xs">{formatDate(skill.created_at)}</td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => openEdit(skill)}
-                        className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm transition-all"
-                      >
-                        Edit
-                      </button>
-                      <button onClick={() => setConfirmDeleteId(skill.id)}
+                      <button onClick={() => setConfirmDeleteId(skill.skillset_id)}
                         className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-200 shadow-sm transition-all"
                       >
                         Delete
@@ -204,14 +158,14 @@ export default function SkillsetsPage() {
         </div>
       </div>
 
-      {/* Create / Edit Modal */}
+      {/* Create Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8">
             <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
               <div>
-                <h3 className="text-xl font-bold text-slate-900">{editing ? 'Edit Skillset' : 'Add Skillset'}</h3>
-                <p className="text-sm text-slate-500 mt-1">{editing ? `Editing "${editing.name}"` : 'Define a new skillset for the company.'}</p>
+                <h3 className="text-xl font-bold text-slate-900">Add Skillset</h3>
+                <p className="text-sm text-slate-500 mt-1">Define a new skillset for the company.</p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-full p-2 transition-colors border border-slate-200">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -220,22 +174,15 @@ export default function SkillsetsPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Skillset Name <span className="text-rose-500">*</span></label>
-                <input type="text" placeholder="e.g. Forklift Operation" value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Category</label>
-                <input type="text" placeholder="e.g. Logistics, Customer Service" value={form.category}
-                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                <input type="text" placeholder="e.g. Forklift Operation" value={form.skillset_name}
+                  onChange={e => setForm(f => ({ ...f, skillset_name: e.target.value }))}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
                 />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Description</label>
-                <textarea placeholder="Brief description of this skill..." value={form.description}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                <textarea placeholder="Brief description of this skill..." value={form.skillset_description}
+                  onChange={e => setForm(f => ({ ...f, skillset_description: e.target.value }))}
                   rows={3}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none"
                 />
@@ -246,7 +193,7 @@ export default function SkillsetsPage() {
               <button onClick={handleSave} disabled={saving}
                 className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 shadow-sm transition-colors disabled:opacity-60"
               >
-                {saving ? 'Saving...' : editing ? 'Save Changes' : 'Add Skillset'}
+                {saving ? 'Saving...' : 'Add Skillset'}
               </button>
               <button onClick={() => setShowModal(false)}
                 className="rounded-xl bg-white border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"

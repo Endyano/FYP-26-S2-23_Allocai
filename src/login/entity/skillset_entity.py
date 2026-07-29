@@ -44,6 +44,24 @@ class SkillsetEntity:
         return Database.execute(query, (skillset_id, company_id, staff_skillset_id))
 
     @staticmethod
+    def get_staff_assignments_by_company(company_id):
+        query = """
+            SELECT
+                ss.staff_skillset_id,
+                ss.company_member_id,
+                u.full_name,
+                ss.skillset_id,
+                s.skillset_name
+            FROM staff_skillsets ss
+            JOIN company_members cm ON cm.company_member_id = ss.company_member_id
+            JOIN users u ON u.user_id = cm.user_id
+            JOIN skillsets s ON s.skillset_id = ss.skillset_id
+            WHERE ss.company_id = %s
+            ORDER BY u.full_name ASC, s.skillset_name ASC;
+        """
+        return Database.fetch_all(query, (company_id,))
+
+    @staticmethod
     def staff_has_skillset(company_id, company_member_id, skillset_id):
         query = """
             SELECT staff_skillset_id
@@ -71,15 +89,13 @@ class SkillsetEntity:
                 skillset_name,
                 skillset_description,
                 skillset_status,
-                created_at,
-                updated_at
+                created_at
             )
             SELECT
                 %s,
                 %s,
                 %s,
                 'Active',
-                NOW(),
                 NOW()
             WHERE NOT EXISTS (
                 SELECT 1
@@ -112,8 +128,7 @@ class SkillsetEntity:
                 skillset_name,
                 skillset_description,
                 skillset_status,
-                created_at,
-                updated_at
+                created_at
             FROM skillsets
             WHERE company_id = %s
             AND skillset_status != 'Deleted'
@@ -142,8 +157,8 @@ class SkillsetEntity:
                 WHERE tasks.company_id = skillsets.company_id
                 AND tasks.required_skillset_id = skillsets.skillset_id
                 AND tasks.task_status NOT IN (
-                    'Completed',
-                    'Cancelled'
+                    'completed',
+                    'cancelled'
                 )
             )
             RETURNING *;

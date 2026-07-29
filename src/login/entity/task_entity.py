@@ -24,7 +24,6 @@ class TaskEntity:
                 created_by,
                 task_title,
                 task_description,
-                required_skillset_id,
                 task_date,
                 start_time,
                 end_time,
@@ -33,22 +32,34 @@ class TaskEntity:
                 created_at,
                 updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Open', NOW(), NOW())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'open', NOW(), NOW())
             RETURNING *;
         """
 
-        return Database.execute(query, (
+        task = Database.execute(query, (
             company_id,
             department_id,
             created_by,
             task_title,
             task_description,
-            required_skillset_id,
             task_date,
             start_time,
             end_time,
             priority_level
         ))
+
+        if task and required_skillset_id:
+            Database.execute(
+                """
+                INSERT INTO task_skillsets (task_id, skillset_id)
+                VALUES (%s, %s)
+                RETURNING task_id;
+                """,
+                (task["task_id"], required_skillset_id)
+            )
+            task["required_skillset_id"] = required_skillset_id
+
+        return task
 
     @staticmethod
     def get_by_company(company_id, status=None):
@@ -58,10 +69,19 @@ class TaskEntity:
             SELECT
                 t.*,
                 d.department_name,
-                s.skillset_name
+                s.skillset_id AS required_skillset_id,
+                s.skillset_name,
+                au.full_name AS assigned_staff_name
             FROM tasks t
             LEFT JOIN departments d ON d.department_id = t.department_id
-            LEFT JOIN skillsets s ON s.skillset_id = t.required_skillset_id
+            LEFT JOIN task_skillsets ts ON ts.task_id = t.task_id
+            LEFT JOIN skillsets s ON s.skillset_id = ts.skillset_id
+            LEFT JOIN task_allocations ta
+                ON ta.task_id = t.task_id
+                AND ta.company_id = t.company_id
+                AND ta.allocation_status IN ('pending', 'accepted', 'completed')
+            LEFT JOIN company_members acm ON acm.company_member_id = ta.assigned_to
+            LEFT JOIN users au ON au.user_id = acm.user_id
             WHERE t.company_id = %s
         """
 
@@ -76,10 +96,15 @@ class TaskEntity:
     @staticmethod
     def get_by_id(company_id, task_id):
         query = """
-            SELECT *
-            FROM tasks
-            WHERE company_id = %s
-            AND task_id = %s;
+            SELECT
+                t.*,
+                s.skillset_id AS required_skillset_id,
+                s.skillset_name
+            FROM tasks t
+            LEFT JOIN task_skillsets ts ON ts.task_id = t.task_id
+            LEFT JOIN skillsets s ON s.skillset_id = ts.skillset_id
+            WHERE t.company_id = %s
+            AND t.task_id = %s;
         """
         return Database.fetch_one(query, (company_id, task_id))
 
@@ -91,7 +116,6 @@ class TaskEntity:
                 department_id = COALESCE(%s, department_id),
                 task_title = COALESCE(%s, task_title),
                 task_description = COALESCE(%s, task_description),
-                required_skillset_id = COALESCE(%s, required_skillset_id),
                 task_date = COALESCE(%s, task_date),
                 start_time = COALESCE(%s, start_time),
                 end_time = COALESCE(%s, end_time),
@@ -103,11 +127,10 @@ class TaskEntity:
             RETURNING *;
         """
 
-        return Database.execute(query, (
+        task = Database.execute(query, (
             data.get("department_id"),
             data.get("task_title"),
             data.get("task_description"),
-            data.get("required_skillset_id"),
             data.get("task_date"),
             data.get("start_time"),
             data.get("end_time"),
@@ -117,9 +140,33 @@ class TaskEntity:
             task_id
         ))
 
+        if task and "required_skillset_id" in data:
+            Database.execute(
+                """
+                DELETE FROM task_skillsets
+                WHERE task_id = %s
+                RETURNING task_id;
+                """,
+                (task_id,)
+            )
+
+            if data.get("required_skillset_id"):
+                Database.execute(
+                    """
+                    INSERT INTO task_skillsets (task_id, skillset_id)
+                    VALUES (%s, %s)
+                    RETURNING task_id;
+                    """,
+                    (task_id, data.get("required_skillset_id"))
+                )
+
+            task["required_skillset_id"] = data.get("required_skillset_id")
+
+        return task
+
     @staticmethod
     def cancel(company_id, task_id):
-        return TaskEntity.update_status(company_id, task_id, "Cancelled")
+        return TaskEntity.update_status(company_id, task_id, "cancelled")
 
     @staticmethod
     def update_status(company_id, task_id, task_status):

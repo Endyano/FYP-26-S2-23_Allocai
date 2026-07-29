@@ -3,44 +3,38 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { apiPost } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
 
-    // ==========================================
-    // JALUR PINTAS (BYPASS) KHUSUS DEMO PROTOTIPE
-    // ==========================================
-    setTimeout(() => {
-      const fakeName = email.split('@')[0] || 'User';
-      localStorage.setItem('allocai_user', fakeName);
+    try {
+      const result = await apiPost<{ redirect_to?: string; full_name?: string }>(
+        '/api/auth/login',
+        { email, password }
+      );
 
-      // Deteksi tujuan otomatis dari email
-      let redirectTo = '/Features/casual-staff_dashboard'; // Default
-      const emailLower = email.toLowerCase();
-      
-      if (emailLower.includes('platform')) {
-        redirectTo = '/Features/platform-admin_dashboard';
-      } else if (emailLower.includes('companyadmin') || emailLower.includes('company') || emailLower.includes('cadmin')) {
-        redirectTo = '/Features/company-admin_dashboard';
-      } else if (emailLower.includes('manager')) {
-        redirectTo = '/Features/manager_dashboard';
-      } else if (emailLower.includes('fulltime') || emailLower.includes('full_time') || emailLower.includes('dept') || emailLower.includes('department')) {
-        redirectTo = '/Features/department_dashboard';
-      } else if (emailLower.includes('parttime') || emailLower.includes('part_time') || emailLower.includes('casual') || emailLower.includes('partime')) {
-        redirectTo = '/Features/casual-staff_dashboard';
+      if (!result.success) {
+        setError(result.message || 'Invalid email or password.');
+        return;
       }
 
-      localStorage.setItem('allocai_route', redirectTo);
-      router.push(redirectTo);
-    }, 1000);
+      router.push(result.redirect_to || '/');
+    } catch {
+      setError('Could not reach the server. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -72,15 +66,19 @@ export default function LoginPage() {
               className="w-full rounded-3xl border border-slate-200 bg-slate-100 px-5 py-4 text-slate-950 outline-none transition disabled:opacity-50 focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
             />
 
-            <button 
-              type="submit" 
+            {error ? (
+              <p className="text-center text-sm text-rose-600">{error}</p>
+            ) : null}
+
+            <button
+              type="submit"
               disabled={isLoading}
               className="mt-2 flex justify-center items-center gap-2 rounded-full bg-slate-950 px-6 py-4 text-sm font-semibold text-white transition-all disabled:opacity-80 disabled:cursor-wait hover:bg-slate-800 active:scale-95"
             >
-              {isLoading ? 'Processing...' : 'Log in'}
+              {isLoading ? 'Logging in...' : 'Log in'}
             </button>
           </form>
-          
+
           <div className="flex items-center justify-between text-sm text-slate-500">
             <label className="flex items-center gap-2 cursor-pointer group">
               <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-slate-950 transition group-hover:border-slate-400" />

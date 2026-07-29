@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api';
 
 const STATUS_STYLES: Record<string, string> = {
   Active:    'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
@@ -23,12 +24,19 @@ export default function PlatformAdminDashboard() {
   const [activeTab, setActiveTab] = useState('analytics');
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('allocai_user');
-    if (savedUser) {
-      // Capitalize first letter
-      setUserName(savedUser.charAt(0).toUpperCase() + savedUser.slice(1));
+    async function checkSession() {
+      const result = await apiFetch<{ full_name?: string; role?: string }>('/api/auth/session');
+
+      if (!result.success || result.role !== 'platform_admin') {
+        router.push('/Features/login');
+        return;
+      }
+
+      setUserName(result.full_name || 'Admin');
     }
-  }, []);
+
+    checkSession();
+  }, [router]);
 
   // --- MOCK DATA ---
   const [companies, setCompanies] = useState([
@@ -68,10 +76,8 @@ export default function PlatformAdminDashboard() {
   // --- HANDLERS ---
   const confirmLogout = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/logout`, { method: 'POST', credentials: 'include' });
+      await apiFetch('/api/auth/logout', { method: 'POST' });
     } catch {}
-    localStorage.removeItem('allocai_user');
-    localStorage.removeItem('allocai_route');
     router.push('/');
   };
 

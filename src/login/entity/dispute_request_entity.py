@@ -13,10 +13,13 @@ class DisputeRequestEntity:
                 t.task_title,
                 whr.hours_worked
             FROM dispute_requests dr
-            JOIN company_members cm ON cm.company_member_id = dr.company_member_id
+            JOIN company_members cm ON cm.company_member_id = dr.requested_by
             JOIN users u ON u.user_id = cm.user_id
-            LEFT JOIN tasks t ON t.task_id = dr.task_id
             LEFT JOIN working_hour_records whr ON whr.working_hour_id = dr.working_hour_id
+            LEFT JOIN task_allocations ta
+                ON ta.allocation_id = whr.allocation_id
+                AND ta.company_id = whr.company_id
+            LEFT JOIN tasks t ON t.task_id = ta.task_id
             WHERE dr.company_id = %s
             ORDER BY dr.created_at DESC;
         """
@@ -51,9 +54,8 @@ class DisputeRequestEntity:
         query = """
             INSERT INTO dispute_requests (
                 company_id,
-                company_member_id,
                 working_hour_id,
-                task_id,
+                requested_by,
                 reason,
                 requested_hours,
                 current_recorded_hours,
@@ -62,17 +64,19 @@ class DisputeRequestEntity:
             )
             SELECT
                 wh.company_id,
-                wh.company_member_id,
                 wh.working_hour_id,
-                wh.task_id,
+                %s,
                 %s,
                 %s,
                 wh.hours_worked,
-                'Pending',
+                'pending',
                 NOW()
             FROM working_hour_records wh
+            JOIN task_allocations ta
+                ON ta.allocation_id = wh.allocation_id
+                AND ta.company_id = wh.company_id
             WHERE wh.company_id = %s
-            AND wh.company_member_id = %s
+            AND ta.assigned_to = %s
             AND wh.working_hour_id = %s
             AND wh.hours_worked <> %s
             AND NOT EXISTS (
@@ -80,7 +84,7 @@ class DisputeRequestEntity:
                 FROM dispute_requests dr
                 WHERE dr.company_id = wh.company_id
                 AND dr.working_hour_id = wh.working_hour_id
-                AND dr.dispute_status = 'Pending'
+                AND dr.dispute_status = 'pending'
             )
             RETURNING *;
         """
@@ -88,6 +92,7 @@ class DisputeRequestEntity:
         return Database.execute(
             query,
             (
+                company_member_id,
                 reason,
                 requested_hours,
                 company_id,

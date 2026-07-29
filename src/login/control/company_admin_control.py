@@ -5,10 +5,19 @@ from entity.company_entity import CompanyEntity
 from entity.company_member_entity import CompanyMemberEntity
 from entity.invitation_entity import InvitationEntity
 from entity.department_entity import DepartmentEntity
+from entity.permission_entity import PermissionEntity
 from entity.skillset_entity import SkillsetEntity
 from entity.role_entity import RoleEntity
+from mailer import send_invitation_email
 
 class CompanyAdminControl:
+
+    @staticmethod
+    def view_permissions():
+        return {
+            "success": True,
+            "permissions": PermissionEntity.get_all()
+        }
 
     @staticmethod
     def view_company_profile(company_id):
@@ -33,7 +42,8 @@ class CompanyAdminControl:
             "company_name",
             "company_email",
             "company_phone",
-            "company_address"
+            "company_address",
+            "industry"
         }
 
         fields_to_update = allowed_fields.intersection(data.keys())
@@ -113,14 +123,25 @@ class CompanyAdminControl:
         # Set employee type based on the selected role
         employee_type_map = {
             "manager": None,
-            "full_time_staff": "Full Time",
-            "part_time_staff": "Part Time"
+            "full_time_staff": "full_time",
+            "part_time_staff": "part_time"
         }
+
+        invited_role = RoleEntity.get_by_name(
+            company_id=company_id,
+            role_name=role
+        )
+
+        if not invited_role:
+            return {
+                "success": False,
+                "message": "Invalid employee role."
+            }
 
         invitation = InvitationEntity.create(
             company_id=company_id,
             invited_email=email,
-            invited_role=role,
+            invited_role_id=invited_role["role_id"],
             employee_type=employee_type_map[role],
             department_id=department_id,
             invited_by=invited_by
@@ -135,6 +156,20 @@ class CompanyAdminControl:
                     "is invalid."
                 )
             }
+
+        company = CompanyEntity.get_by_id(company_id)
+
+        try:
+            send_invitation_email(
+                to_email=email,
+                company_name=company["company_name"] if company else "your company",
+                role_name=role,
+                invitation_token=invitation["invitation_token"]
+            )
+        except Exception:
+            invitation["email_sent"] = False
+        else:
+            invitation["email_sent"] = True
 
         return {
             "success": True,

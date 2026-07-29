@@ -1,5 +1,6 @@
 from entity.availability_entity import AvailabilityEntity
 from entity.cancellation_request_entity import CancellationRequestEntity
+from entity.department_entity import DepartmentEntity
 from entity.dispute_request_entity import DisputeRequestEntity
 from entity.skillset_entity import SkillsetEntity
 from entity.staff_profile_entity import StaffProfileEntity
@@ -10,6 +11,34 @@ from entity.work_rule_entity import WorkRuleEntity
 
 
 class ManagerControl:
+
+    @staticmethod
+    def view_departments(company_id):
+        return {
+            "success": True,
+            "departments": DepartmentEntity.get_by_company(company_id)
+        }
+
+    @staticmethod
+    def view_skillsets(company_id):
+        return {
+            "success": True,
+            "skillsets": SkillsetEntity.get_by_company(company_id)
+        }
+
+    @staticmethod
+    def view_staff_skillset_assignments(company_id):
+        return {
+            "success": True,
+            "assignments": SkillsetEntity.get_staff_assignments_by_company(company_id)
+        }
+
+    @staticmethod
+    def get_monthly_report(company_id, year, month):
+        return {
+            "success": True,
+            "report": WorkingHourEntity.get_monthly_report(company_id, year, month)
+        }
 
     @staticmethod
     def view_staff(company_id, search=None, skillset_id=None, availability_date=None):
@@ -196,7 +225,7 @@ class ManagerControl:
             assigned_by=assigned_by
         )
 
-        TaskEntity.update_status(company_id, task_id, "Assigned")
+        TaskEntity.update_status(company_id, task_id, "allocated")
 
         return {
             "success": True,
@@ -220,7 +249,7 @@ class ManagerControl:
                 "message": "Staff profile is not active."
             }
 
-        if staff.get("employee_type") == "Part Time":
+        if staff.get("employee_type") == "part_time":
             rule = WorkRuleEntity.get_by_member(company_id, company_member_id)
             task_hours = TaskEntity.calculate_task_hours(
                 task["start_time"],
@@ -330,10 +359,10 @@ class ManagerControl:
 
     @staticmethod
     def resolve_dispute(company_id, dispute_request_id, action, reviewed_by):
-        if action not in ["Approved", "Rejected"]:
+        if action not in ["approved", "rejected"]:
             return {
                 "success": False,
-                "message": "Action must be Approved or Rejected."
+                "message": "Action must be approved or rejected."
             }
 
         dispute = DisputeRequestEntity.resolve(
@@ -349,7 +378,7 @@ class ManagerControl:
                 "message": "Dispute request was not found."
             }
 
-        if action == "Approved" and dispute.get("working_hour_id"):
+        if action == "approved" and dispute.get("working_hour_id"):
             WorkingHourEntity.update_hours(
                 company_id=company_id,
                 working_hour_id=dispute["working_hour_id"],
@@ -371,10 +400,10 @@ class ManagerControl:
 
     @staticmethod
     def resolve_cancellation_request(company_id, cancellation_request_id, action, reviewed_by):
-        if action not in ["Approved", "Rejected"]:
+        if action not in ["approved", "rejected"]:
             return {
                 "success": False,
-                "message": "Action must be Approved or Rejected."
+                "message": "Action must be approved or rejected."
             }
 
         request = CancellationRequestEntity.resolve(
@@ -390,17 +419,17 @@ class ManagerControl:
                 "message": "Cancellation request was not found."
             }
 
-        if action == "Approved":
+        if action == "approved":
             TaskAllocationEntity.update_status(
                 company_id=company_id,
                 allocation_id=request["allocation_id"],
-                allocation_status="Cancelled"
+                allocation_status="cancelled"
             )
 
             TaskEntity.update_status(
                 company_id=company_id,
                 task_id=request["task_id"],
-                task_status="Cancelled"
+                task_status="cancelled"
             )
 
         return {

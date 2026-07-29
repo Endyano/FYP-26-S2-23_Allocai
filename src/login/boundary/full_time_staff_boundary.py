@@ -82,7 +82,7 @@ def search_assigned_tasks():
 
 # Accept an allocation belonging to the logged-in staff member
 @full_time_staff_bp.route(
-    "/allocations/<int:allocation_id>/accept",
+    "/allocations/<allocation_id>/accept",
     methods=["PATCH"]
 )
 @login_required("full_time_staff")
@@ -97,7 +97,7 @@ def accept_allocation(allocation_id):
 
 # Decline an allocation belonging to the logged-in staff member
 @full_time_staff_bp.route(
-    "/allocations/<int:allocation_id>/decline",
+    "/allocations/<allocation_id>/decline",
     methods=["PATCH"]
 )
 @login_required("full_time_staff")
@@ -112,7 +112,7 @@ def decline_allocation(allocation_id):
 
 # Mark an accepted task as completed
 @full_time_staff_bp.route(
-    "/allocations/<int:allocation_id>/complete",
+    "/allocations/<allocation_id>/complete",
     methods=["PATCH"]
 )
 @login_required("full_time_staff")

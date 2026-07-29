@@ -15,6 +15,7 @@ from boundary.full_time_staff_boundary import full_time_staff_bp
 from control.auth_control import AuthControl
 from boundary.part_time_staff_boundary import part_time_staff_bp
 from boundary.company_admin_boundary import company_admin_bp
+from boundary.platform_admin_boundary import platform_admin_bp
 
 load_dotenv()
 
@@ -35,7 +36,11 @@ app.json_provider_class = CustomJSONProvider
 app.json = CustomJSONProvider(app)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "smart_task_allocation_secret_key")
 
-CORS(app, supports_credentials=True)
+CORS(
+    app,
+    supports_credentials=True,
+    origins=["http://localhost:3000"]
+)
 
 app.register_blueprint(public_bp)
 app.register_blueprint(auth_bp)
@@ -43,6 +48,7 @@ app.register_blueprint(manager_bp)
 app.register_blueprint(full_time_staff_bp)
 app.register_blueprint(part_time_staff_bp)
 app.register_blueprint(company_admin_bp)
+app.register_blueprint(platform_admin_bp)
 
 
 @app.route("/")

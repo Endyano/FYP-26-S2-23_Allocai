@@ -30,7 +30,7 @@ class AvailabilityEntity:
             AND available_date = %s
             AND start_time <= %s
             AND end_time >= %s
-            AND availability_status = 'Available'
+            AND availability_status = 'available'
             LIMIT 1;
         """
 

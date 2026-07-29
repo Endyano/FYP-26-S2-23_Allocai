@@ -14,7 +14,7 @@ class TaskAllocationEntity:
                 allocation_status,
                 assigned_at
             )
-            VALUES (%s, %s, %s, %s, 'Assigned', NOW())
+            VALUES (%s, %s, %s, %s, 'pending', NOW())
             RETURNING *;
         """
         return Database.execute(query, (company_id, task_id, assigned_to, assigned_by))
@@ -36,11 +36,11 @@ class TaskAllocationEntity:
             UPDATE task_allocations
             SET allocation_status = %s,
                 response_at = CASE
-                    WHEN %s IN ('Accepted', 'Declined', 'Cancelled') THEN NOW()
+                    WHEN %s IN ('accepted', 'declined', 'cancelled') THEN NOW()
                     ELSE response_at
                 END,
                 completed_at = CASE
-                    WHEN %s = 'Completed' THEN NOW()
+                    WHEN %s = 'completed' THEN NOW()
                     ELSE completed_at
                 END
             WHERE company_id = %s
@@ -59,11 +59,11 @@ class TaskAllocationEntity:
     def cancel_by_task(company_id, task_id):
         query = """
             UPDATE task_allocations
-            SET allocation_status = 'Cancelled',
+            SET allocation_status = 'cancelled',
                 response_at = NOW()
             WHERE company_id = %s
             AND task_id = %s
-            AND allocation_status NOT IN ('Completed', 'Cancelled')
+            AND allocation_status NOT IN ('completed', 'cancelled')
             RETURNING *;
         """
         return Database.execute(query, (company_id, task_id))
@@ -77,7 +77,7 @@ class TaskAllocationEntity:
             WHERE ta.company_id = %s
             AND ta.assigned_to = %s
             AND t.task_date = %s
-            AND ta.allocation_status IN ('Assigned', 'Accepted')
+            AND ta.allocation_status IN ('pending', 'accepted')
             AND NOT (%s >= t.end_time OR %s <= t.start_time)
             LIMIT 1;
         """
@@ -114,8 +114,8 @@ class TaskAllocationEntity:
                 ON s.skillset_id = t.required_skillset_id
             WHERE ta.company_id = %s
             AND ta.assigned_to = %s
-            AND ta.allocation_status IN ('Assigned', 'Accepted')
-            AND t.task_status != 'Cancelled'
+            AND ta.allocation_status IN ('pending', 'accepted')
+            AND t.task_status != 'cancelled'
             AND t.task_date >= CURRENT_DATE
             ORDER BY
                 t.task_date ASC,
@@ -158,9 +158,9 @@ class TaskAllocationEntity:
             AND ta.assigned_to = %s
             AND (
                 ta.allocation_status IN (
-                    'Completed',
-                    'Declined',
-                    'Cancelled'
+                    'completed',
+                    'declined',
+                    'cancelled'
                 )
                 OR t.task_date < CURRENT_DATE
             )
@@ -210,9 +210,9 @@ class TaskAllocationEntity:
             WHERE ta.company_id = %s
             AND ta.assigned_to = %s
             AND ta.allocation_status IN (
-                'Assigned',
-                'Accepted',
-                'Completed'
+                'pending',
+                'accepted',
+                'completed'
             )
             AND (
                 LOWER(t.task_title) LIKE LOWER(%s)
@@ -254,7 +254,7 @@ class TaskAllocationEntity:
             WHERE company_id = %s
             AND assigned_to = %s
             AND allocation_id = %s
-            AND allocation_status = 'Assigned'
+            AND allocation_status = 'pending'
             RETURNING *;
         """
 
@@ -278,17 +278,17 @@ class TaskAllocationEntity:
             WITH completed_allocation AS (
                 UPDATE task_allocations
                 SET
-                    allocation_status = 'Completed',
+                    allocation_status = 'completed',
                     completed_at = NOW()
                 WHERE company_id = %s
                 AND assigned_to = %s
                 AND allocation_id = %s
-                AND allocation_status = 'Accepted'
+                AND allocation_status = 'accepted'
                 RETURNING *
             )
             UPDATE tasks t
             SET
-                task_status = 'Completed',
+                task_status = 'completed',
                 updated_at = NOW()
             FROM completed_allocation ca
             WHERE t.company_id = ca.company_id

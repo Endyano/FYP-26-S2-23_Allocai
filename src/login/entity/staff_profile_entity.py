@@ -1,18 +1,49 @@
 from db import Database
+from entity.work_rule_entity import WorkRuleEntity
 
 
 class StaffProfileEntity:
 
     @staticmethod
-    def get_staff(company_id, search=None, skillset_id=None, availability_date=None):
-        params = [company_id]
-
+    def create(company_id, company_member_id, employee_type, department_id=None):
         query = """
-            SELECT DISTINCT
+            INSERT INTO staff_profiles (
+                company_id,
+                company_member_id,
+                employee_type,
+                department_id,
+                profile_status
+            )
+            VALUES (%s, %s, %s, %s, 'Active')
+            RETURNING *;
+        """
+
+        return Database.execute(
+            query,
+            (company_id, company_member_id, employee_type, department_id)
+        )
+
+    @staticmethod
+    def get_staff(company_id, search=None, skillset_id=None, availability_date=None):
+        params = [company_id, company_id]
+
+        query = f"""
+            WITH rule_periods AS (
+                SELECT
+                    company_id,
+                    company_member_id,
+                    max_working_hours,
+                    rule_period,
+                    {WorkRuleEntity.PERIOD_START_CASE} AS period_start
+                FROM staff_work_rules
+                WHERE company_id = %s
+                AND rule_status = 'Active'
+            )
+            SELECT
                 sp.staff_profile_id,
                 sp.company_id,
                 sp.company_member_id,
-                sp.staff_id,
+                sp.staff_code AS staff_id,
                 sp.job_title,
                 sp.employee_type,
                 sp.contact_number,
@@ -20,29 +51,41 @@ class StaffProfileEntity:
                 sp.profile_status,
                 u.full_name,
                 u.email,
-                cm.role,
+                r.role_name AS role,
                 cm.member_status,
-                pwr.max_working_hours,
-                pwr.current_working_hours,
-                pwr.remaining_eligible_hours,
-                pwr.eligibility_status
+                rp.max_working_hours,
+                COALESCE(SUM(whr.hours_worked), 0) AS current_working_hours,
+                CASE
+                    WHEN rp.max_working_hours IS NOT NULL
+                        THEN rp.max_working_hours - COALESCE(SUM(whr.hours_worked), 0)
+                    ELSE NULL
+                END AS remaining_eligible_hours
             FROM staff_profiles sp
             JOIN company_members cm ON cm.company_member_id = sp.company_member_id
+            JOIN member_roles mr ON mr.company_member_id = cm.company_member_id
+            JOIN roles r ON r.role_id = mr.role_id
             JOIN users u ON u.user_id = cm.user_id
-            LEFT JOIN part_time_work_rules pwr
-                ON pwr.company_member_id = sp.company_member_id
-                AND pwr.company_id = sp.company_id
-                AND pwr.rule_status = 'Active'
+            LEFT JOIN rule_periods rp
+                ON rp.company_id = sp.company_id
+                AND rp.company_member_id = sp.company_member_id
+            LEFT JOIN task_allocations ta
+                ON ta.company_id = sp.company_id
+                AND ta.assigned_to = sp.company_member_id
+            LEFT JOIN working_hour_records whr
+                ON whr.company_id = sp.company_id
+                AND whr.allocation_id = ta.allocation_id
+                AND whr.record_status != 'disputed'
+                AND (rp.period_start IS NULL OR whr.work_date >= rp.period_start)
             WHERE sp.company_id = %s
             AND sp.profile_status = 'Active'
-            AND cm.member_status = 'Active'
+            AND cm.member_status = 'active'
         """
 
         if search:
             query += """
                 AND (
                     LOWER(u.full_name) LIKE LOWER(%s)
-                    OR LOWER(sp.staff_id) LIKE LOWER(%s)
+                    OR LOWER(sp.staff_code) LIKE LOWER(%s)
                     OR CAST(sp.company_member_id AS TEXT) LIKE %s
                 )
             """
@@ -68,14 +111,43 @@ class StaffProfileEntity:
                     WHERE av.company_id = sp.company_id
                     AND av.company_member_id = sp.company_member_id
                     AND av.available_date = %s
-                    AND av.availability_status = 'Available'
+                    AND av.availability_status = 'available'
                 )
             """
             params.append(availability_date)
 
-        query += " ORDER BY u.full_name ASC;"
+        query += """
+            GROUP BY
+                sp.staff_profile_id,
+                sp.company_id,
+                sp.company_member_id,
+                sp.staff_code,
+                sp.job_title,
+                sp.employee_type,
+                sp.contact_number,
+                sp.profile_description,
+                sp.profile_status,
+                u.full_name,
+                u.email,
+                r.role_name,
+                cm.member_status,
+                rp.max_working_hours
+            ORDER BY u.full_name ASC;
+        """
 
-        return Database.fetch_all(query, tuple(params))
+        rows = Database.fetch_all(query, tuple(params))
+
+        for row in rows:
+            remaining = row.get("remaining_eligible_hours")
+
+            if remaining is None:
+                row["eligibility_status"] = None
+            elif float(remaining) <= 0:
+                row["eligibility_status"] = "at_limit"
+            else:
+                row["eligibility_status"] = "eligible"
+
+        return rows
 
     @staticmethod
     def get_by_member_id(company_id, company_member_id):
@@ -93,7 +165,7 @@ class StaffProfileEntity:
         query = """
             SELECT
                 sp.staff_profile_id,
-                sp.staff_id,
+                sp.staff_code AS staff_id,
                 sp.job_title,
                 sp.employee_type,
                 sp.contact_number,
@@ -101,7 +173,7 @@ class StaffProfileEntity:
                 sp.profile_status,
                 cm.company_member_id,
                 cm.company_id,
-                cm.role,
+                r.role_name AS role,
                 cm.member_status,
                 u.user_id,
                 u.full_name,
@@ -111,12 +183,16 @@ class StaffProfileEntity:
             JOIN company_members cm
                 ON cm.company_member_id = sp.company_member_id
                 AND cm.company_id = sp.company_id
+            JOIN member_roles mr
+                ON mr.company_member_id = cm.company_member_id
+            JOIN roles r
+                ON r.role_id = mr.role_id
             JOIN users u
                 ON u.user_id = cm.user_id
             WHERE sp.company_id = %s
             AND sp.company_member_id = %s
             AND sp.profile_status = 'Active'
-            AND cm.member_status = 'Active';
+            AND cm.member_status = 'active';
         """
 
         return Database.fetch_one(
@@ -132,7 +208,7 @@ class StaffProfileEntity:
                 FROM company_members
                 WHERE company_id = %s
                 AND company_member_id = %s
-                AND member_status = 'Active'
+                AND member_status = 'active'
             ),
             updated_user AS (
                 UPDATE users u
@@ -162,7 +238,7 @@ class StaffProfileEntity:
             AND sp.profile_status = 'Active'
             RETURNING
                 sp.staff_profile_id,
-                sp.staff_id,
+                sp.staff_code AS staff_id,
                 sp.job_title,
                 sp.employee_type,
                 sp.contact_number,

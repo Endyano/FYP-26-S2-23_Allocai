@@ -9,11 +9,15 @@ class CancellationRequestEntity:
             SELECT
                 tcr.*,
                 u.full_name AS requested_by_name,
-                t.task_title
+                t.task_title,
+                t.task_date
             FROM task_cancellation_requests tcr
             JOIN company_members cm ON cm.company_member_id = tcr.requested_by
             JOIN users u ON u.user_id = cm.user_id
-            JOIN tasks t ON t.task_id = tcr.task_id
+            JOIN task_allocations ta
+                ON ta.allocation_id = tcr.allocation_id
+                AND ta.company_id = tcr.company_id
+            JOIN tasks t ON t.task_id = ta.task_id
             WHERE tcr.company_id = %s
             ORDER BY tcr.created_at DESC;
         """
@@ -22,13 +26,22 @@ class CancellationRequestEntity:
     @staticmethod
     def resolve(company_id, cancellation_request_id, status, reviewed_by):
         query = """
-            UPDATE task_cancellation_requests
-            SET request_status = %s,
-                reviewed_by = %s,
-                reviewed_at = NOW()
-            WHERE company_id = %s
-            AND cancellation_request_id = %s
-            RETURNING *;
+            WITH updated AS (
+                UPDATE task_cancellation_requests
+                SET request_status = %s,
+                    reviewed_by = %s,
+                    reviewed_at = NOW()
+                WHERE company_id = %s
+                AND cancellation_request_id = %s
+                RETURNING *
+            )
+            SELECT
+                updated.*,
+                ta.task_id
+            FROM updated
+            JOIN task_allocations ta
+                ON ta.allocation_id = updated.allocation_id
+                AND ta.company_id = updated.company_id;
         """
         return Database.execute(query, (
             status,
@@ -47,7 +60,6 @@ class CancellationRequestEntity:
         query = """
             INSERT INTO task_cancellation_requests (
                 company_id,
-                task_id,
                 allocation_id,
                 requested_by,
                 reason,
@@ -56,23 +68,22 @@ class CancellationRequestEntity:
             )
             SELECT
                 ta.company_id,
-                ta.task_id,
                 ta.allocation_id,
                 ta.assigned_to,
                 %s,
-                'Pending',
+                'pending',
                 NOW()
             FROM task_allocations ta
             WHERE ta.company_id = %s
             AND ta.assigned_to = %s
             AND ta.allocation_id = %s
-            AND ta.allocation_status = 'Accepted'
+            AND ta.allocation_status = 'accepted'
             AND NOT EXISTS (
                 SELECT 1
                 FROM task_cancellation_requests tcr
                 WHERE tcr.company_id = ta.company_id
                 AND tcr.allocation_id = ta.allocation_id
-                AND tcr.request_status = 'Pending'
+                AND tcr.request_status = 'pending'
             )
             RETURNING *;
         """

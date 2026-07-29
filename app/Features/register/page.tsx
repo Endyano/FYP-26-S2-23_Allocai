@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiPost } from '@/lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -10,23 +11,36 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setIsLoading(true);
 
-    // Save user data to localStorage (basic demo storage)
-    const userData = {
-      fullName,
-      phone,
-      email,
-      // NOTE: In production do NOT store raw passwords in localStorage
-      password,
-      role: 'company-admin', // default for onboarding flow
-    };
-    localStorage.setItem('allocai_user', JSON.stringify(userData));
+    try {
+      const registerResult = await apiPost('/api/public/register', {
+        full_name: fullName,
+        email,
+        password,
+        phone_number: phone,
+      });
 
-    // Start the onboarding flow: go to verification (OTP/email)
-    router.push('/Features/register/verify');
+      if (!registerResult.success) {
+        setError(registerResult.message || 'Registration failed.');
+        return;
+      }
+
+      // The account isn't confirmed yet, so it can't log in until the
+      // verification code is entered. Pass the email along for that step.
+      sessionStorage.setItem('allocai_pending_email', email);
+      router.push('/Features/register/verify');
+    } catch {
+      setError('Could not reach the server. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -46,25 +60,46 @@ export default function RegisterPage() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
-              className="w-full rounded-3xl border border-slate-200 bg-slate-100 px-5 py-4 text-slate-950 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-sky-100"
+              disabled={isLoading}
+              className="w-full rounded-3xl border border-slate-200 bg-slate-100 px-5 py-4 text-slate-950 outline-none transition disabled:opacity-50 focus:border-slate-400 focus:ring-2 focus:ring-sky-100"
             />
             <input
               type="tel"
               placeholder="Phone number"
-              className="w-full rounded-3xl border border-slate-200 bg-slate-100 px-5 py-4 text-slate-950 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-sky-100"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              disabled={isLoading}
+              className="w-full rounded-3xl border border-slate-200 bg-slate-100 px-5 py-4 text-slate-950 outline-none transition disabled:opacity-50 focus:border-slate-400 focus:ring-2 focus:ring-sky-100"
             />
             <input
               type="email"
               placeholder="Email"
-              className="w-full rounded-3xl border border-slate-200 bg-slate-100 px-5 py-4 text-slate-950 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-sky-100"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={isLoading}
+              className="w-full rounded-3xl border border-slate-200 bg-slate-100 px-5 py-4 text-slate-950 outline-none transition disabled:opacity-50 focus:border-slate-400 focus:ring-2 focus:ring-sky-100"
             />
             <input
               type="password"
               placeholder="Password"
-              className="w-full rounded-3xl border border-slate-200 bg-slate-100 px-5 py-4 text-slate-950 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-sky-100"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={isLoading}
+              className="w-full rounded-3xl border border-slate-200 bg-slate-100 px-5 py-4 text-slate-950 outline-none transition disabled:opacity-50 focus:border-slate-400 focus:ring-2 focus:ring-sky-100"
             />
-            <button type="submit" className="rounded-full bg-slate-950 px-6 py-4 text-sm font-semibold text-white transition hover:bg-slate-800">
-              Register
+
+            {error ? (
+              <p className="text-center text-sm text-rose-600">{error}</p>
+            ) : null}
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="rounded-full bg-slate-950 px-6 py-4 text-sm font-semibold text-white transition disabled:cursor-wait disabled:opacity-80 hover:bg-slate-800"
+            >
+              {isLoading ? 'Creating account...' : 'Register'}
             </button>
           </form>
 

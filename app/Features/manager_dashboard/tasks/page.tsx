@@ -1,21 +1,25 @@
 'use client';
 
-import { useState } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { useEffect, useState } from 'react';
+import { apiFetch, apiPost } from '@/lib/api';
 
 type Task = {
-  id: string;
-  task_name: string;
-  description: string;
-  priority: 'High' | 'Medium' | 'Low';
-  status: string;
+  task_id: string;
+  task_title: string;
+  task_description: string | null;
+  priority_level: 'low' | 'medium' | 'high';
+  task_status: 'draft' | 'open' | 'allocated' | 'completed' | 'cancelled';
   task_date: string;
   start_time: string;
   end_time: string;
-  staff_name: string | null;
+  department_id: string | null;
   department_name: string | null;
+  assigned_staff_name: string | null;
+  required_skillset_id: string | null;
 };
+
+type Department = { department_id: string; department_name: string };
+type Skillset = { skillset_id: string; skillset_name: string };
 
 const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
   const h = Math.floor(i / 4);
@@ -26,13 +30,21 @@ const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
 });
 
 const STATUS_STYLES: Record<string, string> = {
-  Pending:   'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
-  Approved:  'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
-  Completed: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/20',
-  Cancelled: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20',
+  open:      'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
+  allocated: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
+  completed: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/20',
+  cancelled: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20',
+  draft:     'bg-slate-100 text-slate-600',
 };
 
-const EMPTY_FORM = { task_name: '', description: '', priority: 'Medium', task_date: '', start_time: '', end_time: '' };
+const STATUS_LABELS: Record<string, string> = {
+  open: 'Open', allocated: 'Allocated', completed: 'Completed', cancelled: 'Cancelled', draft: 'Draft',
+};
+
+const EMPTY_FORM = {
+  task_title: '', task_description: '', priority_level: 'medium', department_id: '',
+  required_skillset_id: '', task_date: '', start_time: '', end_time: '',
+};
 
 function formatDate(d: string) {
   if (!d) return '—';
@@ -45,14 +57,10 @@ function formatTime(t: string) {
 }
 
 export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: '1', task_name: 'Morning Stock Check', description: 'Count all warehouse items and update inventory sheet.', priority: 'High', status: 'Pending', task_date: '2026-06-25', start_time: '08:00', end_time: '12:00', staff_name: null, department_name: null },
-    { id: '2', task_name: 'Delivery Route A', description: 'Complete morning deliveries for zone A customers.', priority: 'Medium', status: 'Approved', task_date: '2026-06-25', start_time: '09:00', end_time: '14:00', staff_name: 'Wei Jie Lim', department_name: null },
-    { id: '3', task_name: 'Cold Storage Inspection', description: 'Verify temperature logs and check for expiry.', priority: 'High', status: 'Completed', task_date: '2026-06-24', start_time: '10:00', end_time: '12:00', staff_name: 'Priya Nair', department_name: null },
-    { id: '4', task_name: 'Inventory Reconciliation', description: 'Match physical stock count with system records.', priority: 'Low', status: 'Pending', task_date: '2026-06-26', start_time: '14:00', end_time: '17:00', staff_name: null, department_name: null },
-    { id: '5', task_name: 'Customer Returns Processing', description: 'Process and document all returned goods.', priority: 'Medium', status: 'Cancelled', task_date: '2026-06-23', start_time: '13:00', end_time: '15:00', staff_name: 'Hafiz Zulkifli', department_name: null },
-  ]);
-  const [loading] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [skillsets, setSkillsets] = useState<Skillset[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
@@ -64,8 +72,26 @@ export default function TasksPage() {
   const [formSuccess, setFormSuccess] = useState('');
 
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+
+  async function loadAll() {
+    setLoading(true);
+    setError('');
+    const [tasksRes, deptRes, skillRes] = await Promise.all([
+      apiFetch<{ tasks: Task[] }>('/api/manager/tasks'),
+      apiFetch<{ departments: Department[] }>('/api/manager/departments'),
+      apiFetch<{ skillsets: Skillset[] }>('/api/manager/skillsets'),
+    ]);
+    if (tasksRes.success) setTasks(tasksRes.tasks || []);
+    else setError(tasksRes.message || 'Could not load tasks.');
+    if (deptRes.success) setDepartments(deptRes.departments || []);
+    if (skillRes.success) setSkillsets(skillRes.skillsets || []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadAll();
+  }, []);
 
   function openCreate() {
     setEditingTask(null);
@@ -78,12 +104,14 @@ export default function TasksPage() {
   function openEdit(task: Task) {
     setEditingTask(task);
     setForm({
-      task_name: task.task_name,
-      description: task.description || '',
-      priority: task.priority,
+      task_title: task.task_title,
+      task_description: task.task_description || '',
+      priority_level: task.priority_level,
+      department_id: task.department_id || '',
+      required_skillset_id: task.required_skillset_id || '',
       task_date: task.task_date,
-      start_time: task.start_time,
-      end_time: task.end_time,
+      start_time: task.start_time?.slice(0, 5) || '',
+      end_time: task.end_time?.slice(0, 5) || '',
     });
     setFormError('');
     setFormSuccess('');
@@ -91,64 +119,60 @@ export default function TasksPage() {
   }
 
   async function handleSave() {
-    if (!form.task_name.trim() || !form.task_date || !form.start_time || !form.end_time) {
-      setFormError('Title, date, and times are required.');
+    if (!form.task_title.trim() || !form.department_id || !form.task_date || !form.start_time || !form.end_time) {
+      setFormError('Title, department, date, and times are required.');
       return;
     }
     setSaving(true);
     setFormError('');
     try {
-      const url = editingTask
-        ? `${API_URL}/api/manager/tasks/${editingTask.id}`
-        : `${API_URL}/api/manager/tasks`;
-      const res = await fetch(url, {
-        method: editingTask ? 'PUT' : 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      const d = await res.json();
-      if (d.success) {
-        if (editingTask) {
-          setTasks(prev => prev.map(t => t.id === editingTask.id ? d.task : t));
-        } else {
-          setTasks(prev => [d.task, ...prev]);
-        }
+      const payload = {
+        task_title: form.task_title,
+        task_description: form.task_description || null,
+        priority_level: form.priority_level,
+        department_id: form.department_id,
+        required_skillset_id: form.required_skillset_id || null,
+        task_date: form.task_date,
+        start_time: form.start_time,
+        end_time: form.end_time,
+      };
+
+      const result = editingTask
+        ? await apiFetch<{ task: Task }>(`/api/manager/tasks/${editingTask.task_id}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload),
+          })
+        : await apiPost<{ task: Task }>('/api/manager/tasks', payload);
+
+      if (result.success) {
         setFormSuccess(editingTask ? 'Task updated.' : 'Task created.');
         setTimeout(() => { setShowModal(false); setFormSuccess(''); }, 1000);
+        await loadAll();
       } else {
-        setFormError(d.message || 'Failed to save.');
+        setFormError(result.message || 'Failed to save.');
       }
-    } catch { setFormError('Could not reach the server.'); }
-    finally { setSaving(false); }
+    } catch {
+      setFormError('Could not reach the server.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function cancelTask(id: string) {
     setActingId(id);
     try {
-      const res = await fetch(`${API_URL}/api/manager/tasks/${id}/cancel`, { method: 'PATCH', credentials: 'include' });
-      const d = await res.json();
-      if (d.success) setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'Cancelled' } : t));
+      const result = await apiFetch(`/api/manager/tasks/${id}/cancel`, { method: 'PATCH' });
+      if (result.success) await loadAll();
     } catch {}
     finally { setActingId(null); setConfirmCancelId(null); }
   }
 
-  async function deleteTask(id: string) {
-    setActingId(id);
-    try {
-      const res = await fetch(`${API_URL}/api/manager/tasks/${id}`, { method: 'DELETE', credentials: 'include' });
-      const d = await res.json();
-      if (d.success) setTasks(prev => prev.filter(t => t.id !== id));
-    } catch {}
-    finally { setActingId(null); setConfirmDeleteId(null); }
-  }
-
-  const statuses = ['All', 'Pending', 'Approved', 'Completed', 'Cancelled'];
+  const statuses = ['All', 'open', 'allocated', 'completed', 'cancelled'];
   const counts = statuses.reduce((acc, s) => {
-    acc[s] = s === 'All' ? tasks.length : tasks.filter(t => t.status === s).length;
+    acc[s] = s === 'All' ? tasks.length : tasks.filter(t => t.task_status === s).length;
     return acc;
   }, {} as Record<string, number>);
-  const filtered = statusFilter === 'All' ? tasks : tasks.filter(t => t.status === statusFilter);
+  const filtered = statusFilter === 'All' ? tasks : tasks.filter(t => t.task_status === statusFilter);
 
   return (
     <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
@@ -160,7 +184,7 @@ export default function TasksPage() {
             <button key={s} onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${statusFilter === s ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}
             >
-              {s} <span className="opacity-60">({counts[s]})</span>
+              {s === 'All' ? 'All' : STATUS_LABELS[s]} <span className="opacity-60">({counts[s]})</span>
             </button>
           ))}
         </div>
@@ -195,34 +219,33 @@ export default function TasksPage() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-500">No tasks found.</td></tr>
               ) : filtered.map(task => (
-                <tr key={task.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="px-6 py-4 font-medium text-slate-900 max-w-[180px] truncate">{task.task_name}</td>
+                <tr key={task.task_id} className="hover:bg-slate-50 transition-colors group">
+                  <td className="px-6 py-4 font-medium text-slate-900 max-w-[180px] truncate">{task.task_title}</td>
                   <td className="px-6 py-4 text-slate-600">{formatDate(task.task_date)}</td>
                   <td className="px-6 py-4 text-slate-600">{formatTime(task.start_time)} – {formatTime(task.end_time)}</td>
-                  <td className="px-6 py-4 text-slate-600">{task.staff_name || <span className="italic text-slate-400">Unassigned</span>}</td>
+                  <td className="px-6 py-4 text-slate-600">{task.assigned_staff_name || <span className="italic text-slate-400">Unassigned</span>}</td>
                   <td className="px-6 py-4">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${task.priority === 'High' ? 'bg-rose-50 text-rose-700' : task.priority === 'Medium' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                      {task.priority}
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${task.priority_level === 'high' ? 'bg-rose-50 text-rose-700' : task.priority_level === 'medium' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                      {task.priority_level}
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[task.status] || 'bg-slate-100 text-slate-600'}`}>
-                      {task.status}
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[task.task_status] || 'bg-slate-100 text-slate-600'}`}>
+                      {STATUS_LABELS[task.task_status] || task.task_status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => openEdit(task)}
-                        className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm transition-all"
-                      >Edit</button>
-                      {task.status !== 'Cancelled' && task.status !== 'Completed' && (
-                        <button onClick={() => setConfirmCancelId(task.id)}
+                      {task.task_status !== 'cancelled' && task.task_status !== 'completed' && (
+                        <button onClick={() => openEdit(task)}
+                          className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm transition-all"
+                        >Edit</button>
+                      )}
+                      {task.task_status !== 'cancelled' && task.task_status !== 'completed' && (
+                        <button onClick={() => setConfirmCancelId(task.task_id)}
                           className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-50 hover:border-amber-200 shadow-sm transition-all"
                         >Cancel</button>
                       )}
-                      <button onClick={() => setConfirmDeleteId(task.id)}
-                        className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-200 shadow-sm transition-all"
-                      >Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -239,7 +262,7 @@ export default function TasksPage() {
             <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-xl font-bold text-slate-900">{editingTask ? 'Edit Task' : 'Create Task Request'}</h3>
-                <p className="text-sm text-slate-500 mt-1">{editingTask ? `Editing "${editingTask.task_name}"` : 'Fill in the task details.'}</p>
+                <p className="text-sm text-slate-500 mt-1">{editingTask ? `Editing "${editingTask.task_title}"` : 'Fill in the task details.'}</p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-full p-2 transition-colors border border-slate-200">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -248,23 +271,41 @@ export default function TasksPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Task Title <span className="text-rose-500">*</span></label>
-                <input type="text" value={form.task_name} onChange={e => setForm(f => ({ ...f, task_name: e.target.value }))} placeholder="e.g. Restock Aisle 3"
+                <input type="text" value={form.task_title} onChange={e => setForm(f => ({ ...f, task_title: e.target.value }))} placeholder="e.g. Restock Aisle 3"
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-rose-400 focus:outline-none focus:ring-4 focus:ring-rose-400/10 transition-all"
                 />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Description</label>
-                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Task details..."
+                <textarea value={form.task_description} onChange={e => setForm(f => ({ ...f, task_description: e.target.value }))} rows={2} placeholder="Task details..."
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-rose-400 focus:outline-none focus:ring-4 focus:ring-rose-400/10 transition-all resize-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Priority</label>
-                  <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Department <span className="text-rose-500">*</span></label>
+                  <select value={form.department_id} onChange={e => setForm(f => ({ ...f, department_id: e.target.value }))}
                     className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-rose-400 focus:outline-none transition-all"
                   >
-                    <option>Low</option><option>Medium</option><option>High</option>
+                    <option value="">— Select —</option>
+                    {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Required Skillset</label>
+                  <select value={form.required_skillset_id} onChange={e => setForm(f => ({ ...f, required_skillset_id: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-rose-400 focus:outline-none transition-all"
+                  >
+                    <option value="">None</option>
+                    {skillsets.map(s => <option key={s.skillset_id} value={s.skillset_id}>{s.skillset_name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Priority</label>
+                  <select value={form.priority_level} onChange={e => setForm(f => ({ ...f, priority_level: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-rose-400 focus:outline-none transition-all"
+                  >
+                    <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
                   </select>
                 </div>
                 <div>
@@ -312,31 +353,12 @@ export default function TasksPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white px-10 py-10 rounded-3xl shadow-2xl w-full max-w-sm">
             <h3 className="text-xl font-bold text-slate-900 mb-2 text-center">Cancel Task?</h3>
-            <p className="text-center text-sm text-slate-500 mb-8">This will mark the task as Cancelled.</p>
+            <p className="text-center text-sm text-slate-500 mb-8">This will mark the task as cancelled.</p>
             <div className="flex flex-col gap-3">
               <button onClick={() => cancelTask(confirmCancelId)} disabled={actingId === confirmCancelId}
                 className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
               >{actingId === confirmCancelId ? 'Cancelling...' : 'Yes, cancel task'}</button>
               <button onClick={() => setConfirmCancelId(null)} className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold py-3 rounded-xl transition-colors">Back</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirm */}
-      {confirmDeleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white px-10 py-10 rounded-3xl shadow-2xl w-full max-w-sm">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 mb-6">
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-rose-600"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2 text-center">Delete Task?</h3>
-            <p className="text-center text-sm text-slate-500 mb-8">This will permanently remove the task record.</p>
-            <div className="flex flex-col gap-3">
-              <button onClick={() => deleteTask(confirmDeleteId)} disabled={actingId === confirmDeleteId}
-                className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
-              >{actingId === confirmDeleteId ? 'Deleting...' : 'Yes, delete'}</button>
-              <button onClick={() => setConfirmDeleteId(null)} className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold py-3 rounded-xl transition-colors">Cancel</button>
             </div>
           </div>
         </div>

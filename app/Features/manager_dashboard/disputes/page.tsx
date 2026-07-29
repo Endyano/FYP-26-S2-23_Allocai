@@ -1,16 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api';
 
 type DisputeRequest = {
-  id: string;
-  staff_name: string;
-  task_name: string;
-  task_date: string;
-  logged_hours: number;
-  claimed_hours: number;
+  dispute_request_id: string;
+  full_name: string;
+  task_title: string | null;
+  hours_worked: number | null;
+  requested_hours: number;
   reason: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
+  dispute_status: 'pending' | 'approved' | 'rejected';
   manager_note: string | null;
   created_at: string;
 };
@@ -21,37 +21,48 @@ function formatDate(d: string) {
 }
 
 export default function DisputesPage() {
-  const [disputes, setDisputes] = useState<DisputeRequest[]>([
-    { id: 'D001', staff_name: 'Priya Nair',        task_name: 'Delivery Fruit Run',    task_date: '2026-06-20', logged_hours: 3.0, claimed_hours: 4.5, reason: 'I started earlier than recorded due to loading delays.',          status: 'Pending',  manager_note: null,                        created_at: '2026-06-21' },
-    { id: 'D002', staff_name: 'Kevin Loh Jun Hao', task_name: 'Cold Storage Sorting',  task_date: '2026-06-17', logged_hours: 2.5, claimed_hours: 4.0, reason: 'System logged me out early. I was still on shift.',               status: 'Approved', manager_note: 'Verified with site supervisor.', created_at: '2026-06-18' },
-    { id: 'D003', staff_name: 'Rajan Kumar',        task_name: 'Warehouse Stock Count', task_date: '2026-06-15', logged_hours: 4.0, claimed_hours: 5.0, reason: 'Overtime was not captured as the task closed automatically.',     status: 'Rejected', manager_note: 'No supporting evidence provided.', created_at: '2026-06-16' },
-  ]);
-
+  const [disputes, setDisputes] = useState<DisputeRequest[]>([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('All');
   const [reviewModal, setReviewModal] = useState<DisputeRequest | null>(null);
   const [note, setNote] = useState('');
   const [resolving, setResolving] = useState(false);
 
-  function resolve(action: 'Approved' | 'Rejected') {
-    if (!reviewModal) return;
-    setResolving(true);
-    setTimeout(() => {
-      setDisputes(prev => prev.map(d =>
-        d.id === reviewModal.id ? { ...d, status: action, manager_note: note } : d
-      ));
-      setReviewModal(null);
-      setNote('');
-      setResolving(false);
-    }, 500);
+  async function loadDisputes() {
+    setLoading(true);
+    const result = await apiFetch<{ disputes: DisputeRequest[] }>('/api/manager/disputes');
+    if (result.success) setDisputes(result.disputes || []);
+    setLoading(false);
   }
 
-  const statuses = ['All', 'Pending', 'Approved', 'Rejected'];
+  useEffect(() => {
+    loadDisputes();
+  }, []);
+
+  async function resolve(action: 'approved' | 'rejected') {
+    if (!reviewModal) return;
+    setResolving(true);
+    try {
+      const result = await apiFetch(
+        `/api/manager/disputes/${reviewModal.dispute_request_id}/resolve`,
+        { method: 'PATCH', body: JSON.stringify({ action, manager_note: note }) }
+      );
+      if (result.success) {
+        setReviewModal(null);
+        setNote('');
+        await loadDisputes();
+      }
+    } catch {}
+    finally { setResolving(false); }
+  }
+
+  const statuses = ['All', 'pending', 'approved', 'rejected'];
   const counts = statuses.reduce((acc, s) => {
-    acc[s] = s === 'All' ? disputes.length : disputes.filter(d => d.status === s).length;
+    acc[s] = s === 'All' ? disputes.length : disputes.filter(d => d.dispute_status === s).length;
     return acc;
   }, {} as Record<string, number>);
-  const filtered = statusFilter === 'All' ? disputes : disputes.filter(d => d.status === statusFilter);
-  const pendingCount = disputes.filter(d => d.status === 'Pending').length;
+  const filtered = statusFilter === 'All' ? disputes : disputes.filter(d => d.dispute_status === statusFilter);
+  const pendingCount = disputes.filter(d => d.dispute_status === 'pending').length;
 
   return (
     <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
@@ -60,7 +71,7 @@ export default function DisputesPage() {
       <div className="flex gap-1.5 bg-white rounded-2xl border border-slate-200 p-1.5 shadow-sm w-fit">
         {statuses.map(s => (
           <button key={s} onClick={() => setStatusFilter(s)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${statusFilter === s ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all ${statusFilter === s ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}
           >
             {s} <span className="opacity-60">({counts[s]})</span>
           </button>
@@ -81,35 +92,37 @@ export default function DisputesPage() {
               <tr>
                 <th className="px-6 py-4 font-semibold">Staff</th>
                 <th className="px-6 py-4 font-semibold">Task</th>
-                <th className="px-6 py-4 font-semibold">Task Date</th>
-                <th className="px-6 py-4 font-semibold">Logged Hrs</th>
+                <th className="px-6 py-4 font-semibold">Submitted</th>
+                <th className="px-6 py-4 font-semibold">Recorded Hrs</th>
                 <th className="px-6 py-4 font-semibold">Claimed Hrs</th>
                 <th className="px-6 py-4 font-semibold">Status</th>
                 <th className="px-6 py-4 font-semibold text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {filtered.length === 0 ? (
+              {loading ? (
+                <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 animate-pulse">Loading disputes...</td></tr>
+              ) : filtered.length === 0 ? (
                 <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-500">No dispute requests.</td></tr>
               ) : filtered.map(req => (
-                <tr key={req.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-900">{req.staff_name}</td>
-                  <td className="px-6 py-4 text-slate-600">{req.task_name}</td>
-                  <td className="px-6 py-4 text-slate-500 text-xs">{formatDate(req.task_date)}</td>
-                  <td className="px-6 py-4 text-slate-600">{req.logged_hours} hrs</td>
-                  <td className="px-6 py-4 font-semibold text-slate-900">{req.claimed_hours} hrs</td>
+                <tr key={req.dispute_request_id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 font-medium text-slate-900">{req.full_name}</td>
+                  <td className="px-6 py-4 text-slate-600">{req.task_title || '—'}</td>
+                  <td className="px-6 py-4 text-slate-500 text-xs">{formatDate(req.created_at)}</td>
+                  <td className="px-6 py-4 text-slate-600">{req.hours_worked != null ? `${req.hours_worked} hrs` : '—'}</td>
+                  <td className="px-6 py-4 font-semibold text-slate-900">{req.requested_hours} hrs</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      req.status === 'Pending'  ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20' :
-                      req.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20' :
+                      req.dispute_status === 'pending'  ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20' :
+                      req.dispute_status === 'approved' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20' :
                                                   'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20'
                     }`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${req.status === 'Pending' ? 'bg-amber-500' : req.status === 'Approved' ? 'bg-emerald-500' : 'bg-rose-500'}`}/>
-                      {req.status}
+                      <span className={`h-1.5 w-1.5 rounded-full ${req.dispute_status === 'pending' ? 'bg-amber-500' : req.dispute_status === 'approved' ? 'bg-emerald-500' : 'bg-rose-500'}`}/>
+                      {req.dispute_status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {req.status === 'Pending' ? (
+                    {req.dispute_status === 'pending' ? (
                       <button onClick={() => { setReviewModal(req); setNote(''); }}
                         className="rounded-md bg-slate-900 hover:bg-slate-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-all"
                       >Review</button>
@@ -130,17 +143,17 @@ export default function DisputesPage() {
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8">
             <h3 className="text-xl font-bold text-slate-900 mb-1">Review Hour Dispute</h3>
             <p className="text-sm text-slate-500 mb-4">
-              <span className="font-semibold text-slate-700">{reviewModal.staff_name}</span> · {reviewModal.task_name} · {formatDate(reviewModal.task_date)}
+              <span className="font-semibold text-slate-700">{reviewModal.full_name}</span> · {reviewModal.task_title || '—'}
             </p>
 
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-center">
-                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Logged Hours</p>
-                <p className="text-2xl font-black text-slate-900">{reviewModal.logged_hours}h</p>
+                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Recorded Hours</p>
+                <p className="text-2xl font-black text-slate-900">{reviewModal.hours_worked ?? '—'}h</p>
               </div>
               <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-center">
                 <p className="text-xs text-rose-500 font-semibold uppercase tracking-wider mb-1">Claimed Hours</p>
-                <p className="text-2xl font-black text-rose-700">{reviewModal.claimed_hours}h</p>
+                <p className="text-2xl font-black text-rose-700">{reviewModal.requested_hours}h</p>
               </div>
             </div>
 
@@ -157,10 +170,10 @@ export default function DisputesPage() {
             </div>
 
             <div className="flex gap-3">
-              <button onClick={() => resolve('Approved')} disabled={resolving}
+              <button onClick={() => resolve('approved')} disabled={resolving}
                 className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
               >{resolving ? '...' : 'Approve'}</button>
-              <button onClick={() => resolve('Rejected')} disabled={resolving}
+              <button onClick={() => resolve('rejected')} disabled={resolving}
                 className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
               >{resolving ? '...' : 'Reject'}</button>
               <button onClick={() => setReviewModal(null)} disabled={resolving}

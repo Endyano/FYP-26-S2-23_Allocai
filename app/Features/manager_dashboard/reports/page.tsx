@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { apiFetch } from '@/lib/api';
 
 type ReportRow = {
   id: string;
@@ -55,14 +54,11 @@ export default function ReportsPage() {
     setError('');
     const { year, month } = months[selectedIdx];
     try {
-      const res = await fetch(`${API_URL}/api/manager/reports?year=${year}&month=${month}`, {
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.success) {
-        setReport(data.report);
+      const result = await apiFetch<{ report: ReportRow[] }>(`/api/manager/reports?year=${year}&month=${month}`);
+      if (result.success) {
+        setReport(result.report);
       } else {
-        setError(data.message || 'Failed to load report.');
+        setError(result.message || 'Failed to load report.');
       }
     } catch {
       setError('Could not reach the server. Make sure the backend is running.');

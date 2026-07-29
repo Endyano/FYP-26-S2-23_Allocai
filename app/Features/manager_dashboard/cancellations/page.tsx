@@ -1,32 +1,27 @@
 'use client';
 
-import { useState } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api';
 
 type CancellationRequest = {
-  id: string;
-  staff_name: string;
-  task_name: string;
-  task_date: string;
+  cancellation_request_id: string;
+  requested_by_name: string;
+  task_title: string | null;
+  task_date: string | null;
   reason: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
+  request_status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   manager_note: string | null;
 };
 
-function formatDate(d: string) {
+function formatDate(d: string | null) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export default function CancellationsPage() {
-  const [requests, setRequests] = useState<CancellationRequest[]>([
-    { id: 'C001', staff_name: 'Rajan Kumar', task_name: 'Morning Stock Check', task_date: '2026-06-25', reason: 'I have a medical appointment that morning.', status: 'Pending', manager_note: null, created_at: '2026-06-23' },
-    { id: 'C002', staff_name: 'Priya Nair', task_name: 'Delivery Route B', task_date: '2026-06-22', reason: 'Transportation issues.', status: 'Approved', manager_note: 'Noted, approved this time.', created_at: '2026-06-21' },
-    { id: 'C003', staff_name: 'Wei Jie Lim', task_name: 'Cold Storage Audit', task_date: '2026-06-20', reason: 'Family emergency.', status: 'Rejected', manager_note: 'Insufficient notice given.', created_at: '2026-06-19' },
-  ]);
-  const [loading] = useState(false);
+  const [requests, setRequests] = useState<CancellationRequest[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
@@ -34,33 +29,43 @@ export default function CancellationsPage() {
   const [note, setNote] = useState('');
   const [resolving, setResolving] = useState(false);
 
-  async function resolve(action: 'Approved' | 'Rejected') {
+  async function loadRequests() {
+    setLoading(true);
+    setError('');
+    const result = await apiFetch<{ cancellation_requests: CancellationRequest[] }>('/api/manager/cancellation-requests');
+    if (result.success) setRequests(result.cancellation_requests || []);
+    else setError(result.message || 'Could not load requests.');
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadRequests();
+  }, []);
+
+  async function resolve(action: 'approved' | 'rejected') {
     if (!reviewModal) return;
     setResolving(true);
     try {
-      const res = await fetch(`${API_URL}/api/manager/cancellations/${reviewModal.id}/resolve`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, manager_note: note }),
-      });
-      const d = await res.json();
-      if (d.success) {
-        setRequests(prev => prev.map(r => r.id === reviewModal.id ? { ...r, status: action, manager_note: note } : r));
+      const result = await apiFetch(
+        `/api/manager/cancellation-requests/${reviewModal.cancellation_request_id}/resolve`,
+        { method: 'PATCH', body: JSON.stringify({ action, manager_note: note }) }
+      );
+      if (result.success) {
         setReviewModal(null);
         setNote('');
+        await loadRequests();
       }
     } catch {}
     finally { setResolving(false); }
   }
 
-  const statuses = ['All', 'Pending', 'Approved', 'Rejected'];
+  const statuses = ['All', 'pending', 'approved', 'rejected'];
   const counts = statuses.reduce((acc, s) => {
-    acc[s] = s === 'All' ? requests.length : requests.filter(r => r.status === s).length;
+    acc[s] = s === 'All' ? requests.length : requests.filter(r => r.request_status === s).length;
     return acc;
   }, {} as Record<string, number>);
-  const filtered = statusFilter === 'All' ? requests : requests.filter(r => r.status === statusFilter);
-  const pendingCount = requests.filter(r => r.status === 'Pending').length;
+  const filtered = statusFilter === 'All' ? requests : requests.filter(r => r.request_status === statusFilter);
+  const pendingCount = requests.filter(r => r.request_status === 'pending').length;
 
   return (
     <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
@@ -69,7 +74,7 @@ export default function CancellationsPage() {
       <div className="flex gap-1.5 bg-white rounded-2xl border border-slate-200 p-1.5 shadow-sm w-fit">
         {statuses.map(s => (
           <button key={s} onClick={() => setStatusFilter(s)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${statusFilter === s ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all ${statusFilter === s ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}
           >
             {s} <span className="opacity-60">({counts[s]})</span>
           </button>
@@ -105,24 +110,24 @@ export default function CancellationsPage() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-500">No cancellation requests.</td></tr>
               ) : filtered.map(req => (
-                <tr key={req.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-900">{req.staff_name}</td>
-                  <td className="px-6 py-4 text-slate-600">{req.task_name}</td>
+                <tr key={req.cancellation_request_id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 font-medium text-slate-900">{req.requested_by_name}</td>
+                  <td className="px-6 py-4 text-slate-600">{req.task_title || '—'}</td>
                   <td className="px-6 py-4 text-slate-600">{formatDate(req.task_date)}</td>
                   <td className="px-6 py-4 text-slate-500 max-w-[200px] truncate">{req.reason}</td>
                   <td className="px-6 py-4 text-slate-500 text-xs">{formatDate(req.created_at)}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      req.status === 'Pending'  ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20' :
-                      req.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20' :
+                      req.request_status === 'pending'  ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20' :
+                      req.request_status === 'approved' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20' :
                                                   'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20'
                     }`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${req.status === 'Pending' ? 'bg-amber-500' : req.status === 'Approved' ? 'bg-emerald-500' : 'bg-rose-500'}`}/>
-                      {req.status}
+                      <span className={`h-1.5 w-1.5 rounded-full ${req.request_status === 'pending' ? 'bg-amber-500' : req.request_status === 'approved' ? 'bg-emerald-500' : 'bg-rose-500'}`}/>
+                      {req.request_status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {req.status === 'Pending' ? (
+                    {req.request_status === 'pending' ? (
                       <button onClick={() => { setReviewModal(req); setNote(''); }}
                         className="rounded-md bg-slate-900 hover:bg-slate-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-all"
                       >Review</button>
@@ -143,7 +148,7 @@ export default function CancellationsPage() {
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8">
             <h3 className="text-xl font-bold text-slate-900 mb-1">Review Cancellation</h3>
             <p className="text-sm text-slate-500 mb-4">
-              <span className="font-semibold text-slate-700">{reviewModal.staff_name}</span> · {reviewModal.task_name} · {formatDate(reviewModal.task_date)}
+              <span className="font-semibold text-slate-700">{reviewModal.requested_by_name}</span> · {reviewModal.task_title || '—'} · {formatDate(reviewModal.task_date)}
             </p>
             <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600 mb-5">
               <span className="font-semibold text-slate-700">Reason: </span>{reviewModal.reason}
@@ -156,10 +161,10 @@ export default function CancellationsPage() {
               />
             </div>
             <div className="flex gap-3">
-              <button onClick={() => resolve('Approved')} disabled={resolving}
+              <button onClick={() => resolve('approved')} disabled={resolving}
                 className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
               >{resolving ? '...' : 'Approve'}</button>
-              <button onClick={() => resolve('Rejected')} disabled={resolving}
+              <button onClick={() => resolve('rejected')} disabled={resolving}
                 className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
               >{resolving ? '...' : 'Reject'}</button>
               <button onClick={() => setReviewModal(null)} disabled={resolving}

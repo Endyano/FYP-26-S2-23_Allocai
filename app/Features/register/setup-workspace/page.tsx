@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { apiPost } from "@/lib/api";
 
 const planOptions = [
   {
@@ -58,6 +59,7 @@ export default function SetupWorkspacePage() {
   const [selectedPlan, setSelectedPlan] = useState("free");
   const [buttonText, setButtonText] = useState("Continue");
   const [companyError, setCompanyError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const staffCount = Number(estimatedStaff || 0);
   const activePlan = planOptions.find((plan) => plan.id === selectedPlan) ?? planOptions[0];
@@ -86,26 +88,12 @@ export default function SetupWorkspacePage() {
     setButtonText("Continue");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCompanyError(null);
 
     if (!companyName.trim()) {
       setCompanyError("Company name is required");
-      return;
-    }
-
-    const company = {
-      companyName,
-      industry,
-      estimatedStaff,
-      selectedPlan,
-    };
-    localStorage.setItem("allocai_company", JSON.stringify(company));
-    localStorage.setItem("allocai_onboarding_step", "workspace");
-
-    if (buttonText === "Continue") {
-      router.push("/Features/register/quickstart");
       return;
     }
 
@@ -119,9 +107,37 @@ export default function SetupWorkspacePage() {
         alert("Error: The number of staff exceeds the Starter plan limit. Please select the Pro plan.");
         return;
       }
+    }
 
-      router.push(`/Features/checkout?plan=${selectedPlan}`);
-      return;
+    setIsSubmitting(true);
+
+    try {
+      const result = await apiPost("/api/auth/setup-workspace", {
+        company_name: companyName,
+        industry,
+      });
+
+      if (!result.success) {
+        setCompanyError(result.message || "Could not create the company workspace.");
+        return;
+      }
+
+      localStorage.setItem(
+        "allocai_company",
+        JSON.stringify({ companyName, industry, estimatedStaff, selectedPlan })
+      );
+      localStorage.setItem("allocai_onboarding_step", "workspace");
+
+      if (buttonText === "Purchase Plans") {
+        router.push(`/Features/checkout?plan=${selectedPlan}`);
+        return;
+      }
+
+      router.push("/Features/register/quickstart");
+    } catch {
+      setCompanyError("Could not reach the server. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -248,9 +264,12 @@ export default function SetupWorkspacePage() {
               <button
                 id="btn-continue"
                 type="submit"
-                className="mt-6 w-full rounded-full bg-slate-950 px-6 py-4 text-sm font-semibold text-white shadow-lg shadow-slate-950/10 transition duration-300 hover:-translate-y-0.5 hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-sky-200"
+                disabled={isSubmitting}
+                className="mt-6 w-full rounded-full bg-slate-950 px-6 py-4 text-sm font-semibold text-white shadow-lg shadow-slate-950/10 transition duration-300 hover:-translate-y-0.5 hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-sky-200 disabled:cursor-wait disabled:opacity-70"
               >
-                <span className="inline-block transition-all duration-300">{buttonText}</span>
+                <span className="inline-block transition-all duration-300">
+                  {isSubmitting ? "Saving..." : buttonText}
+                </span>
               </button>
             </div>
           </form>

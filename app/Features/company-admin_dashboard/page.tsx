@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api';
 
 type Stats = {
   total_users: number;
@@ -40,15 +41,37 @@ const QUICK_LINKS = [
 ];
 
 export default function CompanyAdminDashboard() {
-  const [stats] = useState<Stats>({ total_users: 24, active_users: 21, total_departments: 4, total_skillsets: 12, suspended_users: 3 });
+  const [stats, setStats] = useState<Stats | null>(null);
+
+  useEffect(() => {
+    async function loadStats() {
+      const [employeesRes, departmentsRes, skillsetsRes] = await Promise.all([
+        apiFetch<{ employees: { member_status: string }[] }>('/api/company-admin/employees'),
+        apiFetch<{ departments: unknown[] }>('/api/company-admin/departments'),
+        apiFetch<{ skillsets: unknown[] }>('/api/company-admin/skillsets'),
+      ]);
+
+      const employees = employeesRes.success ? employeesRes.employees || [] : [];
+
+      setStats({
+        total_users: employees.length,
+        active_users: employees.filter(e => e.member_status === 'active').length,
+        suspended_users: employees.filter(e => e.member_status === 'suspended').length,
+        total_departments: departmentsRes.success ? (departmentsRes.departments || []).length : 0,
+        total_skillsets: skillsetsRes.success ? (skillsetsRes.skillsets || []).length : 0,
+      });
+    }
+
+    loadStats();
+  }, []);
 
   return (
     <div className="space-y-8 animate-[fadeIn_0.3s_ease-out]">
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard label="Total Users" value={stats?.total_users ?? null} accent="border-t-indigo-500" sublabel="All accounts" />
-        <StatCard label="Active Users" value={stats?.active_users ?? null} accent="border-t-emerald-500" sublabel="Not suspended" />
+        <StatCard label="Total Employees" value={stats?.total_users ?? null} accent="border-t-indigo-500" sublabel="All accounts" />
+        <StatCard label="Active Employees" value={stats?.active_users ?? null} accent="border-t-emerald-500" sublabel="Not suspended" />
         <StatCard label="Departments" value={stats?.total_departments ?? null} accent="border-t-sky-500" sublabel="Across company" />
         <StatCard label="Skillsets" value={stats?.total_skillsets ?? null} accent="border-t-amber-500" sublabel="Defined skills" />
       </div>

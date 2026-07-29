@@ -6,6 +6,101 @@ from psycopg2.extras import RealDictCursor
 
 class RoleEntity:
 
+    SYSTEM_ROLE_DESCRIPTIONS = {
+        "company_admin": "Full administrative access to company settings, employees, departments, roles, and billing.",
+        "manager": "Creates and assigns tasks, manages staff skillsets, and reviews cancellation and hour dispute requests.",
+        "full_time_staff": "Full-time employee who views and completes assigned tasks and schedule.",
+        "part_time_staff": "Part-time employee with a capped eligible-hours limit who views and completes assigned tasks.",
+    }
+
+    SYSTEM_ROLES = list(SYSTEM_ROLE_DESCRIPTIONS.keys())
+
+    SYSTEM_ROLE_PERMISSIONS = {
+        "company_admin": [
+            "allocate_task",
+            "configure_rules",
+            "manage_billing",
+            "manage_departments",
+            "manage_roles",
+            "manage_skillsets",
+            "manage_staff",
+            "review_requests",
+            "view_reports",
+        ],
+        "manager": [
+            "allocate_task",
+            "manage_skillsets",
+            "manage_staff",
+            "review_requests",
+            "view_reports",
+        ],
+        "full_time_staff": [],
+        "part_time_staff": [],
+    }
+
+    @staticmethod
+    def seed_system_roles(company_id):
+        # Create the fixed set of system roles for a newly created company
+        query = """
+            INSERT INTO roles (
+                role_id,
+                company_id,
+                role_name,
+                role_description,
+                is_system_role,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, TRUE, NOW())
+            ON CONFLICT (company_id, role_name) DO NOTHING
+            RETURNING *;
+        """
+
+        permission_query = """
+            INSERT INTO role_permissions (role_id, permission_id)
+            SELECT %s, permission_id
+            FROM permissions
+            WHERE permission_key = ANY(%s::text[])
+            ON CONFLICT DO NOTHING
+            RETURNING role_id;
+        """
+
+        created = []
+
+        for role_name in RoleEntity.SYSTEM_ROLES:
+            role = Database.execute(
+                query,
+                (
+                    str(uuid.uuid4()),
+                    company_id,
+                    role_name,
+                    RoleEntity.SYSTEM_ROLE_DESCRIPTIONS[role_name]
+                )
+            )
+
+            if role:
+                created.append(role)
+
+                permission_keys = RoleEntity.SYSTEM_ROLE_PERMISSIONS.get(role_name, [])
+
+                if permission_keys:
+                    Database.execute(
+                        permission_query,
+                        (role["role_id"], permission_keys)
+                    )
+
+        return created
+
+    @staticmethod
+    def get_by_name(company_id, role_name):
+        query = """
+            SELECT role_id, company_id, role_name, is_system_role
+            FROM roles
+            WHERE company_id = %s
+            AND LOWER(role_name) = LOWER(%s);
+        """
+
+        return Database.fetch_one(query, (company_id, role_name))
+
     @staticmethod
     def create(
         company_id,
@@ -317,12 +412,7 @@ class RoleEntity:
                 ON r.company_id = cm.company_id
             WHERE cm.company_id = %s
             AND cm.company_member_id = %s
-            AND cm.member_status = 'Active'
-            AND LOWER(cm.role) IN (
-                'manager',
-                'full_time_staff',
-                'part_time_staff'
-            )
+            AND cm.member_status = 'active'
             AND r.role_id = %s
             ON CONFLICT (
                 company_member_id,

@@ -1,19 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { useEffect, useState } from 'react';
+import { apiFetch, apiPost } from '@/lib/api';
 
 type Department = {
-  id: string;
-  name: string;
-  description: string;
-  manager_name: string;
-  staff_count: number;
+  department_id: string;
+  department_name: string;
+  department_description: string | null;
+  department_status: string;
   created_at: string;
 };
 
-const EMPTY_FORM = { name: '', description: '' };
+const EMPTY_FORM = { department_name: '', department_description: '' };
 
 function formatDate(d: string) {
   if (!d) return '—';
@@ -21,13 +19,8 @@ function formatDate(d: string) {
 }
 
 export default function DepartmentsPage() {
-  const [departments, setDepartments] = useState<Department[]>([
-    { id: 'D001', name: 'Operations', description: 'Oversees day-to-day business operations and staff coordination.', manager_name: 'Ahmad Farid', staff_count: 8, created_at: '2025-01-10' },
-    { id: 'D002', name: 'Logistics', description: 'Handles delivery routes, fleet management, and supply chain.', manager_name: 'Hafiz Zulkifli', staff_count: 6, created_at: '2025-01-10' },
-    { id: 'D003', name: 'Warehouse', description: 'Manages stock receiving, storage, and inventory control.', manager_name: null, staff_count: 5, created_at: '2025-03-22' },
-    { id: 'D004', name: 'Quality Control', description: 'Ensures all food products meet safety and quality standards.', manager_name: null, staff_count: 3, created_at: '2025-06-01' },
-  ]);
-  const [loading] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
@@ -40,6 +33,19 @@ export default function DepartmentsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  async function loadDepartments() {
+    setLoading(true);
+    setError('');
+    const result = await apiFetch<{ departments: Department[] }>('/api/company-admin/departments');
+    if (result.success) setDepartments(result.departments || []);
+    else setError(result.message || 'Could not load departments.');
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadDepartments();
+  }, []);
+
   function openCreate() {
     setEditing(null);
     setForm(EMPTY_FORM);
@@ -49,35 +55,28 @@ export default function DepartmentsPage() {
 
   function openEdit(dept: Department) {
     setEditing(dept);
-    setForm({ name: dept.name, description: dept.description });
+    setForm({ department_name: dept.department_name, department_description: dept.department_description || '' });
     setFormError('');
     setShowModal(true);
   }
 
   async function handleSave() {
-    if (!form.name.trim()) { setFormError('Department name is required.'); return; }
+    if (!form.department_name.trim()) { setFormError('Department name is required.'); return; }
     setSaving(true);
     setFormError('');
     try {
-      const url = editing
-        ? `${API_URL}/api/company-admin/departments/${editing.id}`
-        : `${API_URL}/api/company-admin/departments`;
-      const res = await fetch(url, {
-        method: editing ? 'PUT' : 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      const d = await res.json();
-      if (d.success) {
-        if (editing) {
-          setDepartments(prev => prev.map(dept => dept.id === editing.id ? d.department : dept));
-        } else {
-          setDepartments(prev => [d.department, ...prev]);
-        }
+      const result = editing
+        ? await apiFetch<{ department: Department }>(`/api/company-admin/departments/${editing.department_id}`, {
+            method: 'PUT',
+            body: JSON.stringify(form),
+          })
+        : await apiPost<{ department: Department }>('/api/company-admin/departments', form);
+
+      if (result.success) {
         setShowModal(false);
+        await loadDepartments();
       } else {
-        setFormError(d.message || 'Failed to save.');
+        setFormError(result.message || 'Failed to save.');
       }
     } catch {
       setFormError('Could not reach the server.');
@@ -89,11 +88,9 @@ export default function DepartmentsPage() {
   async function deleteDepartment(id: string) {
     setDeletingId(id);
     try {
-      const res = await fetch(`${API_URL}/api/company-admin/departments/${id}`, {
-        method: 'DELETE', credentials: 'include',
-      });
-      const d = await res.json();
-      if (d.success) setDepartments(prev => prev.filter(dept => dept.id !== id));
+      const result = await apiFetch(`/api/company-admin/departments/${id}`, { method: 'DELETE' });
+      if (result.success) setDepartments(prev => prev.filter(dept => dept.department_id !== id));
+      else setError(result.message || 'Could not delete department.');
     } catch {}
     finally {
       setDeletingId(null);
@@ -102,8 +99,8 @@ export default function DepartmentsPage() {
   }
 
   const filtered = departments.filter(d =>
-    d.name.toLowerCase().includes(search.toLowerCase()) ||
-    (d.description || '').toLowerCase().includes(search.toLowerCase())
+    d.department_name.toLowerCase().includes(search.toLowerCase()) ||
+    (d.department_description || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -140,30 +137,30 @@ export default function DepartmentsPage() {
               <tr>
                 <th className="px-6 py-4 font-semibold">Department</th>
                 <th className="px-6 py-4 font-semibold">Description</th>
-                <th className="px-6 py-4 font-semibold">Manager</th>
-                <th className="px-6 py-4 font-semibold">Staff Count</th>
+                <th className="px-6 py-4 font-semibold">Status</th>
                 <th className="px-6 py-4 font-semibold">Created</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
               {loading ? (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 animate-pulse">Loading departments...</td></tr>
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 animate-pulse">Loading departments...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-500">No departments found.</td></tr>
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500">No departments found.</td></tr>
               ) : filtered.map(dept => (
-                <tr key={dept.id} className="hover:bg-slate-50 transition-colors group">
+                <tr key={dept.department_id} className="hover:bg-slate-50 transition-colors group">
                   <td className="px-6 py-4 font-semibold text-slate-900">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-sky-100 flex items-center justify-center text-xs font-bold text-sky-700">
-                        {dept.name?.charAt(0).toUpperCase()}
+                        {dept.department_name?.charAt(0).toUpperCase()}
                       </div>
-                      {dept.name}
+                      {dept.department_name}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-slate-500 max-w-xs truncate">{dept.description || '—'}</td>
-                  <td className="px-6 py-4 text-slate-600">{dept.manager_name || <span className="italic text-slate-400">Unassigned</span>}</td>
-                  <td className="px-6 py-4 text-slate-600">{dept.staff_count ?? '—'}</td>
+                  <td className="px-6 py-4 text-slate-500 max-w-xs truncate">{dept.department_description || '—'}</td>
+                  <td className="px-6 py-4">
+                    <span className="rounded-full bg-slate-100 text-slate-700 px-2.5 py-1 text-xs font-semibold">{dept.department_status}</span>
+                  </td>
                   <td className="px-6 py-4 text-slate-500 text-xs">{formatDate(dept.created_at)}</td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -174,7 +171,7 @@ export default function DepartmentsPage() {
                         Edit
                       </button>
                       <button
-                        onClick={() => setConfirmDeleteId(dept.id)}
+                        onClick={() => setConfirmDeleteId(dept.department_id)}
                         className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-200 shadow-sm transition-all"
                       >
                         Delete
@@ -195,7 +192,7 @@ export default function DepartmentsPage() {
             <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-xl font-bold text-slate-900">{editing ? 'Edit Department' : 'New Department'}</h3>
-                <p className="text-sm text-slate-500 mt-1">{editing ? `Editing "${editing.name}"` : 'Create a new department for your company.'}</p>
+                <p className="text-sm text-slate-500 mt-1">{editing ? `Editing "${editing.department_name}"` : 'Create a new department for your company.'}</p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-full p-2 transition-colors border border-slate-200">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -204,15 +201,15 @@ export default function DepartmentsPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Department Name <span className="text-rose-500">*</span></label>
-                <input type="text" placeholder="e.g. Inventory & Logistics" value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                <input type="text" placeholder="e.g. Inventory & Logistics" value={form.department_name}
+                  onChange={e => setForm(f => ({ ...f, department_name: e.target.value }))}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
                 />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Description</label>
-                <textarea placeholder="Brief description of this department..." value={form.description}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                <textarea placeholder="Brief description of this department..." value={form.department_description}
+                  onChange={e => setForm(f => ({ ...f, department_description: e.target.value }))}
                   rows={3}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none"
                 />

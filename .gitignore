@@ -40,3 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .claude/
+
+# python
+venv/
+__pycache__/
+*.pyc
+*.pyo
