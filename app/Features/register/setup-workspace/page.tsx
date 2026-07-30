@@ -197,7 +197,7 @@ export default function SetupWorkspacePage() {
                 <label className="mb-2 block text-sm font-semibold text-slate-700">Company name</label>
                 <input
                   type="text"
-                  placeholder="PT. Contoh Perusahaan"
+                  placeholder="e.g. Acme Corporation Pte. Ltd."
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   required
