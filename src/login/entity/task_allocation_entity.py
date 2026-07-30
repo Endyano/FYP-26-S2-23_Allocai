@@ -110,8 +110,10 @@ class TaskAllocationEntity:
                 AND t.company_id = ta.company_id
             LEFT JOIN departments d
                 ON d.department_id = t.department_id
+            LEFT JOIN task_skillsets ts
+                ON ts.task_id = t.task_id
             LEFT JOIN skillsets s
-                ON s.skillset_id = t.required_skillset_id
+                ON s.skillset_id = ts.skillset_id
             WHERE ta.company_id = %s
             AND ta.assigned_to = %s
             AND ta.allocation_status IN ('pending', 'accepted')
@@ -152,8 +154,10 @@ class TaskAllocationEntity:
                 AND t.company_id = ta.company_id
             LEFT JOIN departments d
                 ON d.department_id = t.department_id
+            LEFT JOIN task_skillsets ts
+                ON ts.task_id = t.task_id
             LEFT JOIN skillsets s
-                ON s.skillset_id = t.required_skillset_id
+                ON s.skillset_id = ts.skillset_id
             WHERE ta.company_id = %s
             AND ta.assigned_to = %s
             AND (
@@ -205,8 +209,10 @@ class TaskAllocationEntity:
                 AND t.company_id = ta.company_id
             LEFT JOIN departments d
                 ON d.department_id = t.department_id
+            LEFT JOIN task_skillsets ts
+                ON ts.task_id = t.task_id
             LEFT JOIN skillsets s
-                ON s.skillset_id = t.required_skillset_id
+                ON s.skillset_id = ts.skillset_id
             WHERE ta.company_id = %s
             AND ta.assigned_to = %s
             AND ta.allocation_status IN (
@@ -285,22 +291,64 @@ class TaskAllocationEntity:
                 AND allocation_id = %s
                 AND allocation_status = 'accepted'
                 RETURNING *
+            ),
+            completed_task AS (
+                UPDATE tasks t
+                SET
+                    task_status = 'completed',
+                    updated_at = NOW()
+                FROM completed_allocation ca
+                WHERE t.company_id = ca.company_id
+                AND t.task_id = ca.task_id
+                RETURNING
+                    ca.allocation_id,
+                    ca.allocation_status,
+                    ca.assigned_to,
+                    ca.completed_at,
+                    ca.company_id,
+                    t.task_id,
+                    t.task_title,
+                    t.task_status,
+                    t.task_date,
+                    t.start_time,
+                    t.end_time
+            ),
+            logged_hours AS (
+                INSERT INTO working_hour_records (
+                    company_id,
+                    allocation_id,
+                    work_date,
+                    start_time,
+                    end_time,
+                    hours_worked,
+                    record_status
+                )
+                SELECT
+                    company_id,
+                    allocation_id,
+                    task_date,
+                    start_time,
+                    end_time,
+                    ROUND(
+                        EXTRACT(EPOCH FROM (end_time - start_time)) / 3600.0,
+                        2
+                    ),
+                    'recorded'
+                FROM completed_task
+                RETURNING allocation_id, working_hour_id, hours_worked
             )
-            UPDATE tasks t
-            SET
-                task_status = 'completed',
-                updated_at = NOW()
-            FROM completed_allocation ca
-            WHERE t.company_id = ca.company_id
-            AND t.task_id = ca.task_id
-            RETURNING
-                ca.allocation_id,
-                ca.allocation_status,
-                ca.assigned_to,
-                ca.completed_at,
-                t.task_id,
-                t.task_title,
-                t.task_status;
+            SELECT
+                ct.allocation_id,
+                ct.allocation_status,
+                ct.assigned_to,
+                ct.completed_at,
+                ct.task_id,
+                ct.task_title,
+                ct.task_status,
+                lh.working_hour_id,
+                lh.hours_worked
+            FROM completed_task ct
+            JOIN logged_hours lh ON lh.allocation_id = ct.allocation_id;
         """
 
         return Database.execute(

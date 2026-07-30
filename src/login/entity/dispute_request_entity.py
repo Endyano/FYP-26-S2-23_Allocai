@@ -26,6 +26,33 @@ class DisputeRequestEntity:
         return Database.fetch_all(query, (company_id,))
 
     @staticmethod
+    def get_by_member(company_id, company_member_id):
+        query = """
+            SELECT
+                dr.dispute_request_id,
+                dr.working_hour_id,
+                dr.reason,
+                dr.requested_hours,
+                dr.current_recorded_hours,
+                dr.dispute_status,
+                dr.created_at,
+                dr.reviewed_at,
+                t.task_id,
+                t.task_title,
+                t.task_date
+            FROM dispute_requests dr
+            LEFT JOIN working_hour_records whr ON whr.working_hour_id = dr.working_hour_id
+            LEFT JOIN task_allocations ta
+                ON ta.allocation_id = whr.allocation_id
+                AND ta.company_id = whr.company_id
+            LEFT JOIN tasks t ON t.task_id = ta.task_id
+            WHERE dr.company_id = %s
+            AND dr.requested_by = %s
+            ORDER BY dr.created_at DESC;
+        """
+        return Database.fetch_all(query, (company_id, company_member_id))
+
+    @staticmethod
     def resolve(company_id, dispute_request_id, status, reviewed_by):
         query = """
             UPDATE dispute_requests

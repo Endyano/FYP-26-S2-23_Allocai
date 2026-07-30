@@ -40,6 +40,34 @@ def update_profile():
 
     return jsonify(result), 200 if result["success"] else 400
 
+# View the logged-in staff member's availability slots
+@part_time_staff_bp.route("/availability", methods=["GET"])
+@login_required("part_time_staff")
+def view_availability():
+    result = PartTimeStaffControl.view_availability(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id()
+    )
+
+    return jsonify(result), 200
+
+# Add a new availability slot for the logged-in staff member
+@part_time_staff_bp.route("/availability", methods=["POST"])
+@login_required("part_time_staff")
+def create_availability():
+    data = request.get_json() or {}
+
+    result = PartTimeStaffControl.create_availability(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id(),
+        available_date=data.get("available_date"),
+        start_time=data.get("start_time"),
+        end_time=data.get("end_time"),
+        availability_status=data.get("availability_status", "available")
+    )
+
+    return jsonify(result), 201 if result["success"] else 400
+
 # Update the logged-in staff member's availability
 @part_time_staff_bp.route(
     "/availability/<availability_id>",
@@ -54,6 +82,21 @@ def update_availability(availability_id):
         company_member_id=current_company_member_id(),
         availability_id=availability_id,
         data=data
+    )
+
+    return jsonify(result), 200 if result["success"] else 400
+
+# Remove an availability slot for the logged-in staff member
+@part_time_staff_bp.route(
+    "/availability/<availability_id>",
+    methods=["DELETE"]
+)
+@login_required("part_time_staff")
+def delete_availability(availability_id):
+    result = PartTimeStaffControl.delete_availability(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id(),
+        availability_id=availability_id
     )
 
     return jsonify(result), 200 if result["success"] else 400
@@ -146,6 +189,17 @@ def request_cancellation(allocation_id):
 
     return jsonify(result), 201 if result["success"] else 400
 
+# View the logged-in staff member's own cancellation requests
+@part_time_staff_bp.route("/cancellation-requests", methods=["GET"])
+@login_required("part_time_staff")
+def view_cancellation_requests():
+    result = PartTimeStaffControl.view_cancellation_requests(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id()
+    )
+
+    return jsonify(result), 200
+
 # View the logged-in staff member's eligibility hours
 @part_time_staff_bp.route(
     "/eligibility-hours",
@@ -178,3 +232,25 @@ def submit_hours_dispute(working_hour_id):
     )
 
     return jsonify(result), 201 if result["success"] else 400
+
+# View the logged-in staff member's own dispute requests
+@part_time_staff_bp.route("/disputes", methods=["GET"])
+@login_required("part_time_staff")
+def view_disputes():
+    result = PartTimeStaffControl.view_disputes(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id()
+    )
+
+    return jsonify(result), 200
+
+# View the logged-in staff member's own working-hour records
+@part_time_staff_bp.route("/working-hours", methods=["GET"])
+@login_required("part_time_staff")
+def view_working_hours():
+    result = PartTimeStaffControl.view_working_hours(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id()
+    )
+
+    return jsonify(result), 200

@@ -5,23 +5,90 @@ import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 
 const STATUS_STYLES: Record<string, string> = {
-  Active:    'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
-  Suspended: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
-  Deleted:   'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20',
-  Pending:   'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/20',
+  active:    'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
+  suspended: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
+  cancelled: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20',
 };
 
 const DOT_STYLES: Record<string, string> = {
-  Active:    'bg-emerald-500',
-  Suspended: 'bg-amber-500',
-  Deleted:   'bg-rose-500',
-  Pending:   'bg-sky-500',
+  active:    'bg-emerald-500',
+  suspended: 'bg-amber-500',
+  cancelled: 'bg-rose-500',
 };
+
+type Company = {
+  company_id: string;
+  company_name: string;
+  company_status: 'active' | 'suspended' | 'cancelled';
+  created_by_name: string | null;
+  created_by_email: string | null;
+  created_at: string;
+};
+
+type Plan = {
+  subscription_plan_id: string;
+  plan_name: string;
+  plan_price: number;
+  staff_cap: number;
+  feature_gate: Record<string, unknown>;
+  plan_status: string;
+};
+
+type Review = {
+  review_id: string;
+  full_name: string | null;
+  email: string | null;
+  company_name: string | null;
+  rating: number;
+  review_text: string;
+  review_status: 'pending' | 'published' | 'rejected';
+  created_at: string;
+};
+
+type AuditLog = {
+  audit_log_id: string;
+  action_type: string;
+  target_table: string;
+  target_record_id: string;
+  full_name: string | null;
+  email: string | null;
+  company_name: string | null;
+  created_at: string;
+};
+
+type Analytics = {
+  companies: { company_status: string; total: number }[];
+  subscriptions: { subscription_status: string; payment_status: string; total: number }[];
+  reviews: { review_status: string; total: number }[];
+};
+
+function formatDateTime(d: string) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 
 export default function PlatformAdminDashboard() {
   const router = useRouter();
   const [userName, setUserName] = useState<string>('Admin');
   const [activeTab, setActiveTab] = useState('analytics');
+  const [ready, setReady] = useState(false);
+
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [editPlanModal, setEditPlanModal] = useState<Plan | null>(null);
+  const [staffCapInput, setStaffCapInput] = useState('');
+  const [featureGateInput, setFeatureGateInput] = useState('');
+  const [planFormError, setPlanFormError] = useState('');
+  const [suspendModal, setSuspendModal] = useState<Company | null>(null);
+  const [deleteTenantModal, setDeleteTenantModal] = useState<Company | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
     async function checkSession() {
@@ -33,47 +100,31 @@ export default function PlatformAdminDashboard() {
       }
 
       setUserName(result.full_name || 'Admin');
+      setReady(true);
     }
 
     checkSession();
   }, [router]);
 
-  // --- MOCK DATA ---
-  const [companies, setCompanies] = useState([
-    { id: 'TEN-01', name: 'Optimo Foods', plan: 'Professional', status: 'Active', joined: '2025-10-12' },
-    { id: 'TEN-02', name: 'Nexus Retail', plan: 'Starter', status: 'Active', joined: '2026-01-05' },
-    { id: 'TEN-03', name: 'BlueWave Logistics', plan: 'Professional', status: 'Suspended', joined: '2026-03-20' },
-  ]);
+  async function loadAll() {
+    setLoading(true);
+    const [companiesResult, plansResult, reviewsResult, auditResult, analyticsResult] = await Promise.all([
+      apiFetch<{ companies?: Company[] }>('/api/platform-admin/companies'),
+      apiFetch<{ plans?: Plan[] }>('/api/platform-admin/subscription-plans'),
+      apiFetch<{ reviews?: Review[] }>('/api/platform-admin/reviews'),
+      apiFetch<{ audit_logs?: AuditLog[] }>('/api/platform-admin/audit-logs'),
+      apiFetch<{ analytics?: Analytics }>('/api/platform-admin/analytics'),
+    ]);
+    setCompanies(companiesResult.companies ?? []);
+    setPlans(plansResult.plans ?? []);
+    setReviews(reviewsResult.reviews ?? []);
+    setAuditLogs(auditResult.audit_logs ?? []);
+    setAnalytics(analyticsResult.analytics ?? null);
+    setLoading(false);
+  }
 
-  const [plans, setPlans] = useState([
-    { id: 'PLN-1', name: 'Starter', staffCap: 10, features: 'Basic Allocation' },
-    { id: 'PLN-2', name: 'Professional', staffCap: 'Unlimited', features: 'AI Scheduling, Live Sync' },
-  ]);
+  useEffect(() => { if (ready) loadAll(); }, [ready]);
 
-  const [reviews, setReviews] = useState([
-    { id: 1, author: 'M. Chen (Harbour Foods Pte. Ltd.)', text: 'Very helpful in cutting down scheduling time for the operations team.', status: 'Pending' },
-    { id: 2, author: 'S. Jenkins (Nexus Retail)', text: 'The real-time feature occasionally lags when the connection is unstable.', status: 'Pending' },
-  ]);
-
-  const [auditLogs] = useState([
-    { id: 101, action: 'Suspended Tenant', target: 'BlueWave Logistics', actor: 'platformadmin', time: '25 Jun 2026, 10:42 AM' },
-    { id: 102, action: 'Updated Plan', target: 'Professional (Feature Gates)', actor: 'platformadmin', time: '25 Jun 2026, 07:15 AM' },
-    { id: 103, action: 'Approved Review', target: 'Review #892', actor: 'platformadmin', time: '24 Jun 2026, 03:20 PM' },
-    { id: 104, action: 'Created Tenant', target: 'Nexus Retail (TEN-02)', actor: 'platformadmin', time: '5 Jan 2026, 09:00 AM' },
-    { id: 105, action: 'Deleted Review', target: 'Review #874', actor: 'platformadmin', time: '22 Dec 2025, 11:35 AM' },
-    { id: 106, action: 'Updated Plan', target: 'Starter (Staff Cap: 10)', actor: 'platformadmin', time: '15 Nov 2025, 02:10 PM' },
-    { id: 107, action: 'Created Tenant', target: 'Harbour Foods Pte. Ltd. (TEN-01)', actor: 'platformadmin', time: '12 Oct 2025, 08:30 AM' },
-  ]);
-
-  // --- MODALS ---
-  const [editPlanModal, setEditPlanModal] = useState<any | null>(null);
-  const [deleteTenantModal, setDeleteTenantModal] = useState<any | null>(null);
-  const [staffCapInput, setStaffCapInput] = useState('');
-  const [featuresInput, setFeaturesInput] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-  // --- HANDLERS ---
   const confirmLogout = async () => {
     try {
       await apiFetch('/api/auth/logout', { method: 'POST' });
@@ -81,40 +132,93 @@ export default function PlatformAdminDashboard() {
     router.push('/');
   };
 
-  const toggleTenantStatus = (id: string, currentStatus: string) => {
-    setCompanies(prev => prev.map(c => 
-      c.id === id ? { ...c, status: currentStatus === 'Active' ? 'Suspended' : 'Active' } : c
-    ));
-  };
+  async function suspendTenant() {
+    if (!suspendModal) return;
+    setProcessing(true); setError('');
+    const result = await apiFetch<{ success: boolean; message?: string }>(
+      `/api/platform-admin/companies/${suspendModal.company_id}/suspend`,
+      { method: 'PATCH' }
+    );
+    if (result.success) {
+      setSuspendModal(null);
+      loadAll();
+    } else {
+      setError(result.message || 'Failed to suspend tenant.');
+    }
+    setProcessing(false);
+  }
 
-  const deleteTenant = () => {
-    setProcessing(true);
-    setTimeout(() => {
-      setCompanies(prev => prev.filter(c => c.id !== deleteTenantModal.id));
+  async function deleteTenant() {
+    if (!deleteTenantModal) return;
+    setProcessing(true); setError('');
+    const result = await apiFetch<{ success: boolean; message?: string }>(
+      `/api/platform-admin/companies/${deleteTenantModal.company_id}`,
+      { method: 'DELETE' }
+    );
+    if (result.success) {
       setDeleteTenantModal(null);
-      setProcessing(false);
-    }, 800);
-  };
+      loadAll();
+    } else {
+      setError(result.message || 'Failed to delete tenant.');
+    }
+    setProcessing(false);
+  }
 
-  const savePlan = () => {
-    setProcessing(true);
-    setTimeout(() => {
-      setPlans(prev => prev.map(p => 
-        p.id === editPlanModal.id ? { ...p, staffCap: staffCapInput, features: featuresInput } : p
-      ));
+  function openEditPlan(plan: Plan) {
+    setEditPlanModal(plan);
+    setStaffCapInput(String(plan.staff_cap ?? ''));
+    setFeatureGateInput(JSON.stringify(plan.feature_gate ?? {}, null, 2));
+    setPlanFormError('');
+  }
+
+  async function savePlan() {
+    if (!editPlanModal) return;
+    let parsedFeatureGate: Record<string, unknown>;
+    try {
+      parsedFeatureGate = JSON.parse(featureGateInput);
+    } catch {
+      setPlanFormError('Feature gates must be valid JSON.');
+      return;
+    }
+    const staffCapNumber = Number(staffCapInput);
+    if (!staffCapInput || Number.isNaN(staffCapNumber) || staffCapNumber <= 0) {
+      setPlanFormError('Staff cap must be a positive number.');
+      return;
+    }
+    setProcessing(true); setPlanFormError('');
+    const result = await apiFetch<{ success: boolean; message?: string }>(
+      `/api/platform-admin/subscription-plans/${editPlanModal.subscription_plan_id}`,
+      { method: 'PUT', body: JSON.stringify({ staff_cap: staffCapNumber, feature_gate: parsedFeatureGate }) }
+    );
+    if (result.success) {
       setEditPlanModal(null);
-      setProcessing(false);
-    }, 800);
-  };
+      loadAll();
+    } else {
+      setPlanFormError(result.message || 'Failed to update plan.');
+    }
+    setProcessing(false);
+  }
 
-  const resolveReview = (id: number, action: 'Approved' | 'Deleted') => {
-    setReviews(prev => prev.filter(r => r.id !== id));
-  };
+  async function resolveReview(reviewId: string, status: 'published' | 'rejected') {
+    setProcessing(true); setError('');
+    const result = await apiFetch<{ success: boolean; message?: string }>(
+      `/api/platform-admin/reviews/${reviewId}/moderate`,
+      { method: 'PATCH', body: JSON.stringify({ review_status: status }) }
+    );
+    if (result.success) {
+      loadAll();
+    } else {
+      setError(result.message || 'Failed to moderate review.');
+    }
+    setProcessing(false);
+  }
 
-  // --- STATS ---
+  if (!ready) return null;
+
   const totalCompanies = companies.length;
-  const activeSubs = companies.filter(c => c.status === 'Active').length;
-  const pendingReviewsCount = reviews.length;
+  const activeSubs = companies.filter(c => c.company_status === 'active').length;
+  const pendingReviews = reviews.filter(r => r.review_status === 'pending');
+  const pendingReviewsCount = pendingReviews.length;
 
   const compRingValue = Math.min((totalCompanies / 10) * 100, 100);
   const subsRingValue = totalCompanies > 0 ? (activeSubs / totalCompanies) * 100 : 0;
@@ -122,11 +226,10 @@ export default function PlatformAdminDashboard() {
 
   return (
     <div className="flex min-h-screen bg-[#F9FAFB] text-slate-900 font-sans">
-      
+
       {/* Sidebar */}
       <aside className="w-[280px] bg-white border-r border-slate-200 flex flex-col fixed h-screen z-20">
-        
-        {/* Logo Section */}
+
         <div className="p-8 flex items-center gap-3">
           <div className="w-9 h-9 bg-rose-500 rounded-xl flex items-center justify-center shadow-sm">
             <div className="w-4 h-4 bg-white rounded-sm rotate-45"></div>
@@ -134,32 +237,31 @@ export default function PlatformAdminDashboard() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Allocai</h1>
         </div>
 
-        {/* Navigation Menu */}
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-          <button 
+          <button
             onClick={() => setActiveTab('analytics')}
             className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-semibold transition-all ${activeTab === 'analytics' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
             Dashboard
           </button>
-          
-          <button 
+
+          <button
             onClick={() => setActiveTab('companies')}
             className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-semibold transition-all ${activeTab === 'companies' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-            Companies
+            Company Accounts
           </button>
-          
-          <button 
+
+          <button
             onClick={() => setActiveTab('plans')}
             className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-semibold transition-all ${activeTab === 'plans' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            Plans
+            Subscription Plans
           </button>
-          
+
           <button
             onClick={() => setActiveTab('reviews')}
             className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-sm font-semibold transition-all ${activeTab === 'reviews' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
@@ -184,7 +286,6 @@ export default function PlatformAdminDashboard() {
           </button>
         </nav>
 
-        {/* User Profile + Logout (Bottom Left) */}
         <div className="p-4 border-t border-slate-200 space-y-1">
           <div className="flex items-center gap-3 px-4 py-3">
             <div className="w-9 h-9 rounded-full bg-[#2D2D2D] text-white flex items-center justify-center font-semibold text-base flex-shrink-0">
@@ -207,25 +308,24 @@ export default function PlatformAdminDashboard() {
 
       {/* Main Content */}
       <main className="flex-1 ml-[280px] p-10 max-w-6xl">
-        
-        {/* Header (Greeting) */}
+
         <header className="mb-10">
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Platform Workspace</h1>
           <p className="text-lg text-slate-500 mt-2 flex items-center gap-2">
-            <span className="text-2xl">👋</span> Good afternoon, <strong className="text-slate-800">{userName}</strong>!
+            <span className="text-2xl">👋</span> Welcome back, <strong className="text-slate-800">{userName}</strong>!
           </p>
         </header>
+
+        {error && <div className="mb-6 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700 font-medium">{error}</div>}
 
         {/* Dashboard Analytics */}
         {activeTab === 'analytics' && (
           <div className="space-y-8 animate-[fadeIn_0.3s_ease-out]">
-            
-            {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="relative rounded-[2rem] bg-white p-6 shadow-sm border border-slate-100 overflow-hidden">
                 <div className="relative z-10">
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Companies</h3>
-                  <p className="text-4xl font-black text-slate-900 mt-3">{totalCompanies}</p>
+                  <p className="text-4xl font-black text-slate-900 mt-3">{loading ? '—' : totalCompanies}</p>
                 </div>
                 <svg className="absolute -right-4 -bottom-4 w-32 h-32 opacity-50" viewBox="0 0 36 36">
                   <path className="text-slate-100" stroke="currentColor" strokeDasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3" />
@@ -235,8 +335,8 @@ export default function PlatformAdminDashboard() {
 
               <div className="relative rounded-[2rem] bg-white p-6 shadow-sm border border-slate-100 overflow-hidden">
                 <div className="relative z-10">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Subs</h3>
-                  <p className="text-4xl font-black text-slate-900 mt-3">{activeSubs}</p>
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Tenants</h3>
+                  <p className="text-4xl font-black text-slate-900 mt-3">{loading ? '—' : activeSubs}</p>
                 </div>
                 <svg className="absolute -right-4 -bottom-4 w-32 h-32 opacity-50" viewBox="0 0 36 36">
                   <path className="text-slate-100" stroke="currentColor" strokeDasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3" />
@@ -247,7 +347,7 @@ export default function PlatformAdminDashboard() {
               <div className="relative rounded-[2rem] bg-white p-6 shadow-sm border border-slate-100 overflow-hidden">
                 <div className="relative z-10">
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Reviews</h3>
-                  <p className="text-4xl font-black text-slate-900 mt-3">{pendingReviewsCount}</p>
+                  <p className="text-4xl font-black text-slate-900 mt-3">{loading ? '—' : pendingReviewsCount}</p>
                 </div>
                 <svg className="absolute -right-4 -bottom-4 w-32 h-32 opacity-50" viewBox="0 0 36 36">
                   <path className="text-slate-100" stroke="currentColor" strokeDasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3" />
@@ -256,6 +356,18 @@ export default function PlatformAdminDashboard() {
               </div>
             </div>
 
+            {analytics && (
+              <div className="rounded-3xl bg-white border border-slate-100 shadow-sm p-6">
+                <h2 className="text-lg font-bold text-slate-900 mb-4">Company Status Breakdown</h2>
+                <div className="flex gap-3 flex-wrap">
+                  {analytics.companies.map(c => (
+                    <span key={c.company_status} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold capitalize ${STATUS_STYLES[c.company_status] || 'bg-slate-100 text-slate-600'}`}>
+                      {c.company_status}: {c.total}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -270,31 +382,42 @@ export default function PlatformAdminDashboard() {
                 <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
                     <tr>
-                      <th className="px-6 py-4 font-semibold">Tenant ID</th>
                       <th className="px-6 py-4 font-semibold">Company Name</th>
+                      <th className="px-6 py-4 font-semibold">Created By</th>
                       <th className="px-6 py-4 font-semibold">Status</th>
                       <th className="px-6 py-4 font-semibold text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 bg-white">
-                    {companies.map(comp => (
-                      <tr key={comp.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-mono text-slate-500">{comp.id}</td>
-                        <td className="px-6 py-4 font-bold text-slate-900">{comp.name}</td>
+                    {loading ? (
+                      <tr><td colSpan={4} className="px-6 py-10 text-center text-slate-400 animate-pulse">Loading companies...</td></tr>
+                    ) : companies.length === 0 ? (
+                      <tr><td colSpan={4} className="px-6 py-10 text-center text-slate-500">No companies registered yet.</td></tr>
+                    ) : companies.map(comp => (
+                      <tr key={comp.company_id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 font-bold text-slate-900">{comp.company_name}</td>
+                        <td className="px-6 py-4 text-slate-600">
+                          {comp.created_by_name || '—'}
+                          {comp.created_by_email && <p className="text-xs text-slate-400">{comp.created_by_email}</p>}
+                        </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[comp.status]}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${DOT_STYLES[comp.status]}`} />
-                            {comp.status}
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${STATUS_STYLES[comp.company_status]}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${DOT_STYLES[comp.company_status]}`} />
+                            {comp.company_status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
-                            <button onClick={() => toggleTenantStatus(comp.id, comp.status)} className="rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-50">
-                              {comp.status === 'Active' ? 'Suspend' : 'Unsuspend'}
-                            </button>
-                            <button onClick={() => setDeleteTenantModal(comp)} className="rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50">
-                              Delete
-                            </button>
+                            {comp.company_status === 'active' && (
+                              <button onClick={() => setSuspendModal(comp)} className="rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-50">
+                                Suspend
+                              </button>
+                            )}
+                            {comp.company_status !== 'cancelled' && (
+                              <button onClick={() => setDeleteTenantModal(comp)} className="rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50">
+                                Delete
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -318,17 +441,23 @@ export default function PlatformAdminDashboard() {
                   <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
                     <tr>
                       <th className="px-6 py-4 font-semibold">Plan Name</th>
+                      <th className="px-6 py-4 font-semibold">Price</th>
                       <th className="px-6 py-4 font-semibold">Staff Cap</th>
+                      <th className="px-6 py-4 font-semibold">Feature Gates</th>
                       <th className="px-6 py-4 font-semibold text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 bg-white">
-                    {plans.map(plan => (
-                      <tr key={plan.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-bold text-slate-900">{plan.name}</td>
-                        <td className="px-6 py-4 text-slate-600 font-mono text-xs">{plan.staffCap}</td>
+                    {loading ? (
+                      <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400 animate-pulse">Loading plans...</td></tr>
+                    ) : plans.map(plan => (
+                      <tr key={plan.subscription_plan_id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 font-bold text-slate-900">{plan.plan_name}</td>
+                        <td className="px-6 py-4 text-slate-600">${Number(plan.plan_price).toFixed(2)}/mo</td>
+                        <td className="px-6 py-4 text-slate-600 font-mono text-xs">{plan.staff_cap}</td>
+                        <td className="px-6 py-4 text-slate-500 text-xs max-w-xs truncate font-mono">{JSON.stringify(plan.feature_gate)}</td>
                         <td className="px-6 py-4 text-right">
-                          <button onClick={() => { setEditPlanModal(plan); setStaffCapInput(plan.staffCap.toString()); setFeaturesInput(plan.features); }} className="rounded-lg bg-slate-900 text-white px-4 py-1.5 text-xs font-semibold hover:bg-slate-800">
+                          <button onClick={() => openEditPlan(plan)} className="rounded-lg bg-slate-900 text-white px-4 py-1.5 text-xs font-semibold hover:bg-slate-800">
                             Edit
                           </button>
                         </td>
@@ -356,26 +485,30 @@ export default function PlatformAdminDashboard() {
                 <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
                     <tr>
-                      <th className="px-6 py-4 font-semibold">Log ID</th>
                       <th className="px-6 py-4 font-semibold">Action</th>
                       <th className="px-6 py-4 font-semibold">Target</th>
+                      <th className="px-6 py-4 font-semibold">Company</th>
                       <th className="px-6 py-4 font-semibold">Actor</th>
                       <th className="px-6 py-4 font-semibold text-right">Timestamp</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 bg-white">
-                    {auditLogs.map(log => (
-                      <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-mono text-slate-400 text-xs">#{log.id}</td>
-                        <td className="px-6 py-4 font-bold text-slate-900">{log.action}</td>
-                        <td className="px-6 py-4 text-slate-600">{log.target}</td>
+                    {loading ? (
+                      <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400 animate-pulse">Loading logs...</td></tr>
+                    ) : auditLogs.length === 0 ? (
+                      <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-500">No audit log entries yet.</td></tr>
+                    ) : auditLogs.map(log => (
+                      <tr key={log.audit_log_id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 font-bold text-slate-900">{log.action_type}</td>
+                        <td className="px-6 py-4 text-slate-600">{log.target_table} <span className="text-slate-400 text-xs">#{log.target_record_id.slice(0, 8)}</span></td>
+                        <td className="px-6 py-4 text-slate-600">{log.company_name || '—'}</td>
                         <td className="px-6 py-4">
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
                             <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                            {log.actor}
+                            {log.full_name || log.email || '—'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-slate-400 text-xs text-right">{log.time}</td>
+                        <td className="px-6 py-4 text-slate-400 text-xs text-right">{formatDateTime(log.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -402,15 +535,20 @@ export default function PlatformAdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 bg-white">
-                    {reviews.length === 0 ? (
+                    {loading ? (
+                      <tr><td colSpan={3} className="px-6 py-10 text-center text-slate-400 animate-pulse">Loading reviews...</td></tr>
+                    ) : pendingReviews.length === 0 ? (
                       <tr><td colSpan={3} className="px-6 py-10 text-center text-slate-500">No pending reviews.</td></tr>
-                    ) : reviews.map(rev => (
-                      <tr key={rev.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">{rev.author}</td>
-                        <td className="px-6 py-4 text-slate-600 max-w-sm">{rev.text}</td>
+                    ) : pendingReviews.map(rev => (
+                      <tr key={rev.review_id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">
+                          {rev.full_name || rev.email || '—'}
+                          {rev.company_name && <p className="text-xs text-slate-400 font-normal">{rev.company_name}</p>}
+                        </td>
+                        <td className="px-6 py-4 text-slate-600 max-w-sm">{rev.review_text}</td>
                         <td className="px-6 py-4 text-right whitespace-nowrap">
-                          <button onClick={() => resolveReview(rev.id, 'Approved')} className="rounded-lg bg-emerald-50 text-emerald-700 px-3 py-1.5 text-xs font-bold mr-2 hover:bg-emerald-100">Approve</button>
-                          <button onClick={() => resolveReview(rev.id, 'Deleted')} className="rounded-lg bg-rose-50 text-rose-700 px-3 py-1.5 text-xs font-bold hover:bg-rose-100">Delete</button>
+                          <button onClick={() => resolveReview(rev.review_id, 'published')} disabled={processing} className="rounded-lg bg-emerald-50 text-emerald-700 px-3 py-1.5 text-xs font-bold mr-2 hover:bg-emerald-100 disabled:opacity-60">Approve</button>
+                          <button onClick={() => resolveReview(rev.review_id, 'rejected')} disabled={processing} className="rounded-lg bg-rose-50 text-rose-700 px-3 py-1.5 text-xs font-bold hover:bg-rose-100 disabled:opacity-60">Reject</button>
                         </td>
                       </tr>
                     ))}
@@ -427,20 +565,34 @@ export default function PlatformAdminDashboard() {
       {editPlanModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white px-8 py-8 rounded-3xl shadow-2xl w-full max-w-md">
-            <h3 className="text-xl font-bold text-slate-900 mb-6">Edit {editPlanModal.name} Plan</h3>
-            <div className="space-y-4 mb-8">
+            <h3 className="text-xl font-bold text-slate-900 mb-6">Edit {editPlanModal.plan_name} Plan</h3>
+            <div className="space-y-4 mb-6">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Set Staff Cap</label>
-                <input type="text" value={staffCapInput} onChange={(e) => setStaffCapInput(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-100" />
+                <input type="number" min="1" value={staffCapInput} onChange={(e) => setStaffCapInput(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-100" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Set Feature Gates</label>
-                <textarea value={featuresInput} onChange={(e) => setFeaturesInput(e.target.value)} rows={2} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-100 resize-none" />
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Set Feature Gates (JSON)</label>
+                <textarea value={featureGateInput} onChange={(e) => setFeatureGateInput(e.target.value)} rows={5} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-mono text-xs outline-none focus:ring-2 focus:ring-indigo-100 resize-none" />
               </div>
+              {planFormError && <p className="text-sm text-rose-600 font-medium">{planFormError}</p>}
             </div>
             <div className="flex gap-3">
-              <button onClick={savePlan} disabled={processing} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-xl">{processing ? '...' : 'Save'}</button>
+              <button onClick={savePlan} disabled={processing} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-xl disabled:opacity-60">{processing ? '...' : 'Save'}</button>
               <button onClick={() => setEditPlanModal(null)} disabled={processing} className="flex-1 bg-white border border-slate-200 text-slate-700 font-semibold py-3 rounded-xl">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {suspendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white px-10 py-10 rounded-3xl shadow-2xl w-full max-w-sm text-center">
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Suspend Tenant?</h3>
+            <p className="text-sm text-slate-500 mb-8">This will suspend <strong className="text-slate-800">{suspendModal.company_name}</strong>'s access to the platform.</p>
+            <div className="flex flex-col gap-3">
+              <button onClick={suspendTenant} disabled={processing} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 rounded-xl disabled:opacity-60">{processing ? '...' : 'Yes, suspend'}</button>
+              <button onClick={() => setSuspendModal(null)} disabled={processing} className="w-full bg-white border border-slate-200 text-slate-700 font-semibold py-3 rounded-xl">Cancel</button>
             </div>
           </div>
         </div>
@@ -450,9 +602,9 @@ export default function PlatformAdminDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white px-10 py-10 rounded-3xl shadow-2xl w-full max-w-sm text-center">
             <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Tenant?</h3>
-            <p className="text-sm text-slate-500 mb-8">Are you sure you want to permanently delete <strong className="text-slate-800">{deleteTenantModal.name}</strong>?</p>
+            <p className="text-sm text-slate-500 mb-8">Are you sure you want to permanently cancel <strong className="text-slate-800">{deleteTenantModal.company_name}</strong>'s account?</p>
             <div className="flex flex-col gap-3">
-              <button onClick={deleteTenant} disabled={processing} className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3 rounded-xl">{processing ? '...' : 'Yes, delete'}</button>
+              <button onClick={deleteTenant} disabled={processing} className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3 rounded-xl disabled:opacity-60">{processing ? '...' : 'Yes, delete'}</button>
               <button onClick={() => setDeleteTenantModal(null)} disabled={processing} className="w-full bg-white border border-slate-200 text-slate-700 font-semibold py-3 rounded-xl">Cancel</button>
             </div>
           </div>

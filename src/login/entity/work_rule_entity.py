@@ -36,6 +36,7 @@ class WorkRuleEntity:
                 r.company_member_id,
                 r.max_working_hours,
                 r.rule_period,
+                r.rule_status,
                 COALESCE(SUM(whr.hours_worked), 0) AS current_working_hours,
                 r.max_working_hours - COALESCE(SUM(whr.hours_worked), 0) AS remaining_eligible_hours
             FROM rule r
@@ -52,6 +53,18 @@ class WorkRuleEntity:
                 r.company_id,
                 r.company_member_id,
                 r.max_working_hours,
-                r.rule_period;
+                r.rule_period,
+                r.rule_status;
         """
-        return Database.fetch_one(query, (company_id, company_member_id))
+        row = Database.fetch_one(query, (company_id, company_member_id))
+
+        if row:
+            remaining = row.get("remaining_eligible_hours")
+            if remaining is None:
+                row["eligibility_status"] = None
+            elif float(remaining) <= 0:
+                row["eligibility_status"] = "at_limit"
+            else:
+                row["eligibility_status"] = "eligible"
+
+        return row

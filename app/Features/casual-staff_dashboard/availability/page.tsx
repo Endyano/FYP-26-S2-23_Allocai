@@ -1,77 +1,114 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+type AvailabilitySlot = {
+  availability_id: string;
+  available_date: string;
+  start_time: string;
+  end_time: string;
+  availability_status: 'available' | 'unavailable';
+};
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
-  const h = Math.floor(i / 2);
-  const m = i % 2 === 0 ? '00' : '30';
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  return { value: `${String(h).padStart(2, '0')}:${m}`, label: `${h % 12 || 12}:${m} ${ampm}` };
-});
+type EligibilityHours = {
+  max_working_hours: number | null;
+  current_working_hours: number | null;
+  remaining_eligible_hours: number | null;
+};
 
-type DayAvailability = { available: boolean; start_time: string; end_time: string };
-type Availability = Record<string, DayAvailability>;
-
-const defaultDay = (): DayAvailability => ({ available: false, start_time: '09:00', end_time: '17:00' });
+function formatDate(d: string) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+function formatTime(t: string) {
+  if (!t) return '—';
+  const [h, m] = t.split(':').map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+}
 
 export default function PTAvailabilityPage() {
-  const [availability, setAvailability] = useState<Availability>({
-    Monday:    { available: false, start_time: '10:00', end_time: '16:00' },
-    Tuesday:   { available: true,  start_time: '10:00', end_time: '16:00' },
-    Wednesday: { available: false, start_time: '10:00', end_time: '16:00' },
-    Thursday:  { available: true,  start_time: '10:00', end_time: '16:00' },
-    Friday:    { available: false, start_time: '10:00', end_time: '16:00' },
-    Saturday:  { available: true,  start_time: '10:00', end_time: '16:00' },
-    Sunday:    { available: false, start_time: '10:00', end_time: '16:00' },
-  });
-  const [loading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
+  const [hours, setHours] = useState<EligibilityHours | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [remainingHours] = useState<number>(10);
-  const [maxHours] = useState<number>(16);
 
-  function toggleDay(day: string) {
-    setAvailability(prev => ({ ...prev, [day]: { ...prev[day], available: !prev[day].available } }));
+  const [showForm, setShowForm] = useState(false);
+  const [availableDate, setAvailableDate] = useState('');
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('17:00');
+  const [status, setStatus] = useState<'available' | 'unavailable'>('available');
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function loadData() {
+    setLoading(true);
+    const [slotsResult, hoursResult] = await Promise.all([
+      apiFetch<{ availability?: AvailabilitySlot[] }>('/api/part-time-staff/availability'),
+      apiFetch<{ eligibility_hours?: EligibilityHours }>('/api/part-time-staff/eligibility-hours'),
+    ]);
+    setSlots(slotsResult.availability ?? []);
+    setHours(hoursResult.eligibility_hours ?? null);
+    setLoading(false);
   }
 
-  function updateTime(day: string, field: 'start_time' | 'end_time', value: string) {
-    setAvailability(prev => ({ ...prev, [day]: { ...prev[day], [field]: value } }));
-  }
+  useEffect(() => { loadData(); }, []);
 
-  async function handleSave() {
+  async function handleAdd() {
+    if (!availableDate) { setError('Please select a date.'); return; }
     setSaving(true); setError(''); setSuccess('');
-    try {
-      const res = await fetch(`${API_URL}/api/staff/availability`, {
-        method: 'PUT', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ availability }),
-      });
-      const d = await res.json();
-      if (d.success) { setSuccess('Availability updated.'); setTimeout(() => setSuccess(''), 3000); }
-      else setError(d.message || 'Failed to save.');
-    } catch { setError('Could not reach the server.'); }
-    finally { setSaving(false); }
+    const result = await apiFetch<{ success: boolean; message?: string }>('/api/part-time-staff/availability', {
+      method: 'POST',
+      body: JSON.stringify({
+        available_date: availableDate,
+        start_time: startTime,
+        end_time: endTime,
+        availability_status: status,
+      }),
+    });
+    if (result.success) {
+      setSuccess('Availability slot added.');
+      setShowForm(false);
+      setAvailableDate(''); setStartTime('09:00'); setEndTime('17:00'); setStatus('available');
+      loadData();
+      setTimeout(() => setSuccess(''), 3000);
+    } else {
+      setError(result.message || 'Failed to add availability.');
+    }
+    setSaving(false);
   }
 
-  const availableCount = DAYS.filter(d => availability[d]?.available).length;
-  const usedHours = maxHours !== null && remainingHours !== null ? maxHours - remainingHours : null;
-  const usagePct = maxHours && usedHours !== null ? Math.min((usedHours / maxHours) * 100, 100) : 0;
+  async function handleDelete(availabilityId: string) {
+    setDeletingId(availabilityId);
+    const result = await apiFetch<{ success: boolean; message?: string }>(
+      `/api/part-time-staff/availability/${availabilityId}`,
+      { method: 'DELETE' }
+    );
+    if (result.success) {
+      loadData();
+    } else {
+      setError(result.message || 'Failed to remove slot.');
+    }
+    setDeletingId(null);
+  }
+
+  const hoursUsed = hours?.current_working_hours ?? null;
+  const hoursLimit = hours?.max_working_hours ?? null;
+  const remaining = hours?.remaining_eligible_hours ?? null;
+  const usagePct = hoursLimit && hoursUsed !== null ? Math.min((hoursUsed / hoursLimit) * 100, 100) : 0;
 
   return (
     <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
 
       {/* Hours summary */}
-      {maxHours !== null && (
+      {hoursLimit !== null && (
         <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Remaining Eligible Hours</p>
-              <p className="text-3xl font-black text-slate-900 mt-1">{remainingHours ?? '—'}<span className="text-lg font-semibold text-slate-400">h</span></p>
-              <p className="text-xs text-slate-400 mt-0.5">of {maxHours}h weekly limit</p>
+              <p className="text-3xl font-black text-slate-900 mt-1">{remaining ?? '—'}<span className="text-lg font-semibold text-slate-400">h</span></p>
+              <p className="text-xs text-slate-400 mt-0.5">of {hoursLimit}h limit</p>
             </div>
             <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
               <path className="text-slate-100" stroke="currentColor" strokeDasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3"/>
@@ -91,50 +128,74 @@ export default function PTAvailabilityPage() {
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-900">My Availability</h2>
-            <p className="text-sm text-slate-500 mt-0.5">{availableCount} day{availableCount !== 1 ? 's' : ''} available this week.</p>
+            <p className="text-sm text-slate-500 mt-0.5">{slots.length} slot{slots.length !== 1 ? 's' : ''} on record.</p>
           </div>
-          <button onClick={handleSave} disabled={saving || loading}
-            className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 transition-colors shadow-sm disabled:opacity-60"
-          >{saving ? 'Saving...' : 'Save'}</button>
+          <button onClick={() => { setShowForm(!showForm); setError(''); }}
+            className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors shadow-sm ${showForm ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-violet-600 text-white hover:bg-violet-700'}`}
+          >{showForm ? 'Cancel' : 'Add Slot'}</button>
         </div>
+
+        {showForm && (
+          <div className="p-6 border-b border-slate-100 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Date <span className="text-rose-500">*</span></label>
+                <input type="date" value={availableDate} onChange={e => setAvailableDate(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Start Time</label>
+                <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">End Time</label>
+                <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Status</label>
+                <select value={status} onChange={e => setStatus(e.target.value as 'available' | 'unavailable')}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all"
+                >
+                  <option value="available">Available</option>
+                  <option value="unavailable">Unavailable</option>
+                </select>
+              </div>
+            </div>
+            <button onClick={handleAdd} disabled={saving}
+              className="rounded-xl bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 shadow-sm transition-colors disabled:opacity-60"
+            >{saving ? 'Saving...' : 'Add Slot'}</button>
+          </div>
+        )}
 
         {loading ? (
           <div className="px-8 py-12 text-center text-slate-400 animate-pulse">Loading...</div>
+        ) : slots.length === 0 ? (
+          <div className="px-8 py-12 text-center text-slate-500">No availability slots added yet.</div>
         ) : (
           <div className="p-6 space-y-3">
-            {DAYS.map(day => {
-              const dayData = availability[day];
-              return (
-                <div key={day} className={`rounded-2xl border p-4 transition-all ${dayData.available ? 'border-violet-200 bg-violet-50/40' : 'border-slate-200 bg-slate-50/50'}`}>
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <div onClick={() => toggleDay(day)}
-                        className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${dayData.available ? 'bg-violet-500' : 'bg-slate-300'}`}
-                      >
-                        <div className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${dayData.available ? 'translate-x-5' : ''}`}/>
-                      </div>
-                      <span className={`text-sm font-semibold ${dayData.available ? 'text-slate-900' : 'text-slate-400'}`}>{day}</span>
-                    </label>
-                    {dayData.available && (
-                      <div className="flex items-center gap-3">
-                        <select value={dayData.start_time} onChange={e => updateTime(day, 'start_time', e.target.value)}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 outline-none focus:border-violet-400"
-                        >
-                          {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        </select>
-                        <span className="text-slate-400 text-sm">to</span>
-                        <select value={dayData.end_time} onChange={e => updateTime(day, 'end_time', e.target.value)}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 outline-none focus:border-violet-400"
-                        >
-                          {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        </select>
-                      </div>
-                    )}
-                    {!dayData.available && <span className="text-xs text-slate-400 italic">Not available</span>}
-                  </div>
+            {slots.map(slot => (
+              <div key={slot.availability_id} className={`rounded-2xl border p-4 transition-all flex items-center justify-between gap-4 flex-wrap ${slot.availability_status === 'available' ? 'border-violet-200 bg-violet-50/40' : 'border-slate-200 bg-slate-50/50'}`}>
+                <div className="flex items-center gap-3">
+                  <span className={`text-sm font-semibold ${slot.availability_status === 'available' ? 'text-slate-900' : 'text-slate-400'}`}>{formatDate(slot.available_date)}</span>
+                  <span className="text-sm text-slate-500">{formatTime(slot.start_time)} – {formatTime(slot.end_time)}</span>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${slot.availability_status === 'available' ? 'bg-violet-100 text-violet-700' : 'bg-slate-200 text-slate-600'}`}>
+                    {slot.availability_status}
+                  </span>
                 </div>
-              );
-            })}
+                <button
+                  onClick={() => handleDelete(slot.availability_id)}
+                  disabled={deletingId === slot.availability_id}
+                  className="rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors disabled:opacity-60"
+                >
+                  {deletingId === slot.availability_id ? 'Removing...' : 'Remove'}
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>

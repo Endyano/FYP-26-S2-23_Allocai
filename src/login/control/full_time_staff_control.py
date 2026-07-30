@@ -1,3 +1,4 @@
+from entity.cancellation_request_entity import CancellationRequestEntity
 from entity.staff_profile_entity import StaffProfileEntity
 from entity.task_allocation_entity import TaskAllocationEntity
 
@@ -131,7 +132,7 @@ class FullTimeStaffControl:
             company_id=company_id,
             company_member_id=company_member_id,
             allocation_id=allocation_id,
-            allocation_status="Accepted"
+            allocation_status="accepted"
         )
 
         # The allocation may not exist or may already be answered
@@ -161,7 +162,7 @@ class FullTimeStaffControl:
             company_id=company_id,
             company_member_id=company_member_id,
             allocation_id=allocation_id,
-            allocation_status="Declined"
+            allocation_status="declined"
         )
 
         # The allocation may not exist or may already be answered
@@ -207,4 +208,51 @@ class FullTimeStaffControl:
             "success": True,
             "message": "Task marked as completed successfully.",
             "allocation": allocation
+        }
+
+    @staticmethod
+    def request_cancellation(
+        company_id,
+        company_member_id,
+        allocation_id,
+        reason
+    ):
+        if not reason or not reason.strip():
+            return {
+                "success": False,
+                "message": "Cancellation reason is required."
+            }
+
+        cancellation_request = CancellationRequestEntity.create(
+            company_id=company_id,
+            company_member_id=company_member_id,
+            allocation_id=allocation_id,
+            reason=reason.strip()
+        )
+
+        if not cancellation_request:
+            return {
+                "success": False,
+                "message": (
+                    "The allocation was not found, was not accepted, "
+                    "or already has a pending cancellation request."
+                )
+            }
+
+        return {
+            "success": True,
+            "message": "Cancellation request submitted successfully.",
+            "cancellation_request": cancellation_request
+        }
+
+    @staticmethod
+    def view_cancellation_requests(company_id, company_member_id):
+        requests = CancellationRequestEntity.get_by_member(
+            company_id=company_id,
+            company_member_id=company_member_id
+        )
+
+        return {
+            "success": True,
+            "cancellation_requests": requests
         }

@@ -1,24 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api';
 
-interface ScheduleItem {
-  id: number;
-  task_name: string;
+type ScheduleItem = {
+  allocation_id: string;
+  task_title: string;
   task_date: string;
   start_time: string;
   end_time: string;
-  priority: string;
-  status: string;
-}
+  priority_level: string;
+  allocation_status: string;
+};
+
+type EligibilityHours = {
+  max_working_hours: number | null;
+  current_working_hours: number | null;
+  remaining_eligible_hours: number | null;
+  eligibility_status: string | null;
+};
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-AU', { month: 'short', day: 'numeric' });
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('en-AU', { month: 'short', day: 'numeric' });
 }
 
 function formatTime(t: string) {
-  return t.slice(0, 5).replace(':', '');
+  if (!t) return '—';
+  return t.slice(0, 5);
 }
 
 function calcHours(start: string, end: string) {
@@ -29,33 +38,29 @@ function calcHours(start: string, end: string) {
   return (diff / 60).toFixed(1);
 }
 
-function isThisWeek(dateStr: string) {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const day = now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-  monday.setHours(0, 0, 0, 0);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999);
-  return date >= monday && date <= sunday;
-}
-
 export default function CasualDashboard() {
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([
-    { id: 1, task_name: 'Warehouse Restocking', task_date: '2026-06-25', start_time: '08:00', end_time: '12:00', priority: 'Medium', status: 'Approved' },
-    { id: 2, task_name: 'Loading Dock Help', task_date: '2026-06-26', start_time: '07:00', end_time: '10:00', priority: 'High', status: 'Approved' },
-    { id: 3, task_name: 'Stock Count Assist', task_date: '2026-06-24', start_time: '09:00', end_time: '13:00', priority: 'Low', status: 'Completed' },
-  ]);
-  const [hoursUsed] = useState<number>(6);
-  const [maxWeeklyHours] = useState<number>(16);
-  const [loading] = useState(false);
+  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
+  const [hours, setHours] = useState<EligibilityHours | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const hoursLimit = maxWeeklyHours ?? 16;
-  const dashArrayValue = hoursUsed !== null ? Math.min((hoursUsed / hoursLimit) * 100, 100) : 0;
-  const completedCount = schedule.filter(s => s.status === 'Completed').length;
-  const upcomingCount = schedule.filter(s => s.status === 'Approved').length;
+  useEffect(() => {
+    async function loadData() {
+      const [scheduleResult, hoursResult] = await Promise.all([
+        apiFetch<{ schedule?: ScheduleItem[] }>('/api/part-time-staff/schedule'),
+        apiFetch<{ eligibility_hours?: EligibilityHours }>('/api/part-time-staff/eligibility-hours'),
+      ]);
+      setSchedule(scheduleResult.schedule ?? []);
+      setHours(hoursResult.eligibility_hours ?? null);
+      setLoading(false);
+    }
+    loadData();
+  }, []);
+
+  const hoursUsed = hours?.current_working_hours ?? null;
+  const hoursLimit = hours?.max_working_hours ?? null;
+  const dashArrayValue = hoursUsed !== null && hoursLimit ? Math.min((hoursUsed / hoursLimit) * 100, 100) : 0;
+  const completedCount = schedule.filter(s => s.allocation_status === 'completed').length;
+  const upcomingCount = schedule.filter(s => s.allocation_status === 'accepted' || s.allocation_status === 'pending').length;
 
   return (
     <div className="space-y-8 animate-[fadeIn_0.3s_ease-out]">
@@ -64,10 +69,10 @@ export default function CasualDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="relative rounded-2xl bg-white p-6 shadow-sm border border-slate-200 border-t-4 border-t-indigo-500 overflow-hidden transition-all hover:shadow-md">
           <div className="relative z-10">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hours This Week</h3>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Working Hours</h3>
             <p className="text-4xl font-black text-slate-900 mt-3">
-              {hoursUsed !== null ? hoursUsed : <span className="text-slate-300 animate-pulse">—</span>}
-              <span className="text-sm font-medium text-slate-400"> / {maxWeeklyHours ?? '—'}h</span>
+              {loading ? <span className="text-slate-300 animate-pulse">—</span> : (hoursUsed ?? '—')}
+              <span className="text-sm font-medium text-slate-400"> / {hoursLimit ?? '—'}h</span>
             </p>
           </div>
           <svg className="absolute -right-4 -bottom-4 w-32 h-32 text-indigo-50 opacity-50" viewBox="0 0 36 36">
@@ -122,11 +127,11 @@ export default function CasualDashboard() {
         ) : (
           <div className="space-y-4">
             {schedule.map(sched => (
-              <div key={sched.id} className="rounded-2xl bg-slate-50 p-6 border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all flex flex-col md:flex-row justify-between md:items-center gap-4">
+              <div key={sched.allocation_id} className="rounded-2xl bg-slate-50 p-6 border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all flex flex-col md:flex-row justify-between md:items-center gap-4">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    {sched.task_name}
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">{sched.status}</span>
+                    {sched.task_title}
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 capitalize">{sched.allocation_status}</span>
                   </h3>
                   <div className="flex items-center gap-3 mt-2 text-sm text-slate-600 font-medium">
                     <span className="bg-white border border-slate-200 px-2.5 py-1 rounded-md">Date: <strong className="text-slate-900">{formatDate(sched.task_date)}</strong></span>
@@ -135,11 +140,11 @@ export default function CasualDashboard() {
                   </div>
                 </div>
                 <div className="self-start md:self-auto">
-                  <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${
-                    sched.priority === 'High' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                    sched.priority === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-700 border-slate-200'
+                  <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border capitalize ${
+                    sched.priority_level === 'high' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                    sched.priority_level === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-700 border-slate-200'
                   }`}>
-                    Priority: {sched.priority}
+                    Priority: {sched.priority_level || '—'}
                   </span>
                 </div>
               </div>

@@ -4,6 +4,7 @@ from entity.task_allocation_entity import TaskAllocationEntity
 from entity.cancellation_request_entity import CancellationRequestEntity
 from entity.work_rule_entity import WorkRuleEntity
 from entity.dispute_request_entity import DisputeRequestEntity
+from entity.working_hour_entity import WorkingHourEntity
 
 
 class PartTimeStaffControl:
@@ -98,14 +99,14 @@ class PartTimeStaffControl:
         # Only allow the available or unavailable status
         if data.get("availability_status") not in [
             None,
-            "Available",
-            "Unavailable"
+            "available",
+            "unavailable"
         ]:
             return {
                 "success": False,
                 "message": (
                     "Availability status must be "
-                    "Available or Unavailable."
+                    "available or unavailable."
                 )
             }
 
@@ -137,6 +138,84 @@ class PartTimeStaffControl:
         }
 
     @staticmethod
+    def create_availability(
+        company_id,
+        company_member_id,
+        available_date,
+        start_time,
+        end_time,
+        availability_status="available"
+    ):
+        # Required fields must be provided
+        if not available_date or not start_time or not end_time:
+            return {
+                "success": False,
+                "message": "Date, start time, and end time are required."
+            }
+
+        # End time must be later than start time
+        if start_time >= end_time:
+            return {
+                "success": False,
+                "message": "End time must be later than start time."
+            }
+
+        if availability_status not in ["available", "unavailable"]:
+            return {
+                "success": False,
+                "message": (
+                    "Availability status must be "
+                    "available or unavailable."
+                )
+            }
+
+        schedule = AvailabilityEntity.create(
+            company_id=company_id,
+            company_member_id=company_member_id,
+            available_date=available_date,
+            start_time=start_time,
+            end_time=end_time,
+            availability_status=availability_status
+        )
+
+        return {
+            "success": True,
+            "message": "Availability slot added successfully.",
+            "availability": schedule
+        }
+
+    @staticmethod
+    def view_availability(company_id, company_member_id):
+        schedules = AvailabilityEntity.get_by_member(
+            company_id=company_id,
+            company_member_id=company_member_id
+        )
+
+        return {
+            "success": True,
+            "availability": schedules
+        }
+
+    @staticmethod
+    def delete_availability(company_id, company_member_id, availability_id):
+        deleted = AvailabilityEntity.delete(
+            company_id=company_id,
+            company_member_id=company_member_id,
+            availability_id=availability_id
+        )
+
+        if not deleted:
+            return {
+                "success": False,
+                "message": "Availability slot was not found."
+            }
+
+        return {
+            "success": True,
+            "message": "Availability slot removed successfully."
+        }
+
+    @staticmethod
     def respond_to_allocation(
         company_id,
         company_member_id,
@@ -144,10 +223,10 @@ class PartTimeStaffControl:
         action
     ):
         # Only accept these two actions
-        if action not in ["Accepted", "Declined"]:
+        if action not in ["accepted", "declined"]:
             return {
                 "success": False,
-                "message": "Action must be Accepted or Declined."
+                "message": "Action must be accepted or declined."
             }
 
         # Update the allocation through the Entity
@@ -256,31 +335,6 @@ class PartTimeStaffControl:
         }
 
     @staticmethod
-    def search_assigned_tasks(
-        company_id,
-        company_member_id,
-        search
-    ):
-        # The search value cannot be empty
-        if not search or not search.strip():
-            return {
-                "success": False,
-                "message": "Search value is required."
-            }
-
-        # Search only tasks assigned to this staff member
-        tasks = TaskAllocationEntity.search_assigned_tasks(
-            company_id=company_id,
-            company_member_id=company_member_id,
-            search=search.strip()
-        )
-
-        return {
-            "success": True,
-            "tasks": tasks
-        }
-
-    @staticmethod
     def request_cancellation(
         company_id,
         company_member_id,
@@ -314,6 +368,18 @@ class PartTimeStaffControl:
             "success": True,
             "message": "Cancellation request submitted successfully.",
             "cancellation_request": cancellation_request
+        }
+
+    @staticmethod
+    def view_cancellation_requests(company_id, company_member_id):
+        requests = CancellationRequestEntity.get_by_member(
+            company_id=company_id,
+            company_member_id=company_member_id
+        )
+
+        return {
+            "success": True,
+            "cancellation_requests": requests
         }
 
     @staticmethod
@@ -404,4 +470,28 @@ class PartTimeStaffControl:
             "success": True,
             "message": "Hours dispute submitted successfully.",
             "dispute": dispute
+        }
+
+    @staticmethod
+    def view_disputes(company_id, company_member_id):
+        disputes = DisputeRequestEntity.get_by_member(
+            company_id=company_id,
+            company_member_id=company_member_id
+        )
+
+        return {
+            "success": True,
+            "disputes": disputes
+        }
+
+    @staticmethod
+    def view_working_hours(company_id, company_member_id):
+        records = WorkingHourEntity.get_by_member(
+            company_id=company_id,
+            company_member_id=company_member_id
+        )
+
+        return {
+            "success": True,
+            "working_hours": records
         }

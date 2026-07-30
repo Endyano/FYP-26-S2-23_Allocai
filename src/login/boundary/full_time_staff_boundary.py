@@ -110,6 +110,35 @@ def decline_allocation(allocation_id):
 
     return jsonify(result), 200 if result["success"] else 400
 
+# Request cancellation of an accepted allocation belonging to the logged-in staff member
+@full_time_staff_bp.route(
+    "/allocations/<allocation_id>/cancellation-request",
+    methods=["POST"]
+)
+@login_required("full_time_staff")
+def request_cancellation(allocation_id):
+    data = request.get_json() or {}
+
+    result = FullTimeStaffControl.request_cancellation(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id(),
+        allocation_id=allocation_id,
+        reason=data.get("reason")
+    )
+
+    return jsonify(result), 201 if result["success"] else 400
+
+# View the logged-in staff member's own cancellation requests
+@full_time_staff_bp.route("/cancellation-requests", methods=["GET"])
+@login_required("full_time_staff")
+def view_cancellation_requests():
+    result = FullTimeStaffControl.view_cancellation_requests(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id()
+    )
+
+    return jsonify(result), 200
+
 # Mark an accepted task as completed
 @full_time_staff_bp.route(
     "/allocations/<allocation_id>/complete",

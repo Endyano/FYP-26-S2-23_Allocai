@@ -1,16 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+type Task = {
+  allocation_id: string;
+  task_title: string;
+  task_date: string;
+  start_time: string;
+  end_time: string;
+  allocation_status: string;
+};
 
-type Task = { id: string; task_name: string; task_date: string; start_time: string; end_time: string; status: string };
 type CancellationRequest = {
-  id: string;
-  task_name: string;
+  cancellation_request_id: string;
+  task_title: string;
   task_date: string;
   reason: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
+  request_status: 'pending' | 'approved' | 'rejected';
   manager_note: string | null;
   created_at: string;
 };
@@ -26,40 +33,46 @@ function formatTime(t: string) {
 }
 
 export default function PTCancellationPage() {
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: '1', task_name: 'Warehouse Restocking', task_date: '2026-06-25', start_time: '08:00', end_time: '12:00', status: 'Approved' },
-    { id: '2', task_name: 'Loading Dock Help', task_date: '2026-06-26', start_time: '07:00', end_time: '10:00', status: 'Approved' },
-  ]);
-  const [requests, setRequests] = useState<CancellationRequest[]>([
-    { id: 'CR001', task_name: 'Customer Returns Sorting', task_date: '2026-06-22', reason: 'Had a prior commitment.', status: 'Approved', manager_note: 'OK this time.', created_at: '2026-06-21' },
-  ]);
-  const [loading] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [requests, setRequests] = useState<CancellationRequest[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [showForm, setShowForm] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState('');
+  const [selectedAllocationId, setSelectedAllocationId] = useState('');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
+  async function loadData() {
+    setLoading(true);
+    const [scheduleResult, requestsResult] = await Promise.all([
+      apiFetch<{ schedule?: Task[] }>('/api/part-time-staff/schedule'),
+      apiFetch<{ cancellation_requests?: CancellationRequest[] }>('/api/part-time-staff/cancellation-requests'),
+    ]);
+    setTasks((scheduleResult.schedule ?? []).filter(t => t.allocation_status === 'accepted'));
+    setRequests(requestsResult.cancellation_requests ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => { loadData(); }, []);
+
   async function submitRequest() {
-    if (!selectedTaskId || !reason.trim()) { setFormError('Please select a task and provide a reason.'); return; }
+    if (!selectedAllocationId || !reason.trim()) { setFormError('Please select a task and provide a reason.'); return; }
     setSubmitting(true); setFormError(''); setFormSuccess('');
-    try {
-      const res = await fetch(`${API_URL}/api/casual/cancellations`, {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task_id: selectedTaskId, reason }),
-      });
-      const d = await res.json();
-      if (d.success) {
-        setRequests(prev => [d.request, ...prev]);
-        setFormSuccess('Cancellation request submitted successfully.');
-        setShowForm(false);
-        setSelectedTaskId(''); setReason('');
-      } else { setFormError(d.message || 'Failed to submit.'); }
-    } catch { setFormError('Could not reach the server.'); }
-    finally { setSubmitting(false); }
+    const result = await apiFetch<{ success: boolean; message?: string }>(
+      `/api/part-time-staff/allocations/${selectedAllocationId}/cancellation-request`,
+      { method: 'POST', body: JSON.stringify({ reason }) }
+    );
+    if (result.success) {
+      setFormSuccess('Cancellation request submitted successfully.');
+      setShowForm(false);
+      setSelectedAllocationId(''); setReason('');
+      loadData();
+    } else {
+      setFormError(result.message || 'Failed to submit.');
+    }
+    setSubmitting(false);
   }
 
   return (
@@ -72,7 +85,7 @@ export default function PTCancellationPage() {
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Request Task Cancellation</h2>
-            <p className="text-sm text-slate-500 mt-0.5">Submit a request to cancel an assigned task.</p>
+            <p className="text-sm text-slate-500 mt-0.5">Submit a request to cancel an accepted task.</p>
           </div>
           <button onClick={() => { setShowForm(!showForm); setFormError(''); }}
             className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors shadow-sm ${showForm ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-violet-600 text-white hover:bg-violet-700'}`}
@@ -83,15 +96,15 @@ export default function PTCancellationPage() {
           <div className="p-6 border-b border-slate-100 space-y-4">
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Select Task <span className="text-rose-500">*</span></label>
-              <select value={selectedTaskId} onChange={e => setSelectedTaskId(e.target.value)}
+              <select value={selectedAllocationId} onChange={e => setSelectedAllocationId(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all"
               >
                 <option value="">— Select a task —</option>
                 {tasks.map(t => (
-                  <option key={t.id} value={t.id}>{t.task_name} · {formatDate(t.task_date)} {formatTime(t.start_time)}–{formatTime(t.end_time)}</option>
+                  <option key={t.allocation_id} value={t.allocation_id}>{t.task_title} · {formatDate(t.task_date)} {formatTime(t.start_time)}–{formatTime(t.end_time)}</option>
                 ))}
               </select>
-              {tasks.length === 0 && <p className="text-xs text-slate-400 mt-1">No active tasks available to cancel.</p>}
+              {tasks.length === 0 && <p className="text-xs text-slate-400 mt-1">No accepted tasks available to cancel.</p>}
             </div>
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Reason <span className="text-rose-500">*</span></label>
@@ -131,20 +144,20 @@ export default function PTCancellationPage() {
               ) : requests.length === 0 ? (
                 <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-500">No cancellation requests yet.</td></tr>
               ) : requests.map(req => (
-                <tr key={req.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-900">{req.task_name}</td>
+                <tr key={req.cancellation_request_id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 font-medium text-slate-900">{req.task_title}</td>
                   <td className="px-6 py-4 text-slate-600">{formatDate(req.task_date)}</td>
                   <td className="px-6 py-4 text-slate-500 max-w-[200px] truncate">{req.reason}</td>
                   <td className="px-6 py-4 text-slate-400 italic text-xs">{req.manager_note || '—'}</td>
                   <td className="px-6 py-4 text-slate-500 text-xs">{formatDate(req.created_at)}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      req.status === 'Pending'  ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20' :
-                      req.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20' :
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${
+                      req.request_status === 'pending'  ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20' :
+                      req.request_status === 'approved' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20' :
                                                   'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20'
                     }`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${req.status === 'Pending' ? 'bg-amber-500' : req.status === 'Approved' ? 'bg-emerald-500' : 'bg-rose-500'}`}/>
-                      {req.status}
+                      <span className={`h-1.5 w-1.5 rounded-full ${req.request_status === 'pending' ? 'bg-amber-500' : req.request_status === 'approved' ? 'bg-emerald-500' : 'bg-rose-500'}`}/>
+                      {req.request_status}
                     </span>
                   </td>
                 </tr>

@@ -40,6 +40,65 @@ class AvailabilityEntity:
         ) is not None
 
     @staticmethod
+    def create(
+        company_id,
+        company_member_id,
+        available_date,
+        start_time,
+        end_time,
+        availability_status="available"
+    ):
+        query = """
+            INSERT INTO availability_schedules (
+                company_id,
+                company_member_id,
+                available_date,
+                start_time,
+                end_time,
+                availability_status,
+                created_at,
+                updated_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
+            RETURNING *;
+        """
+
+        return Database.execute(
+            query,
+            (
+                company_id,
+                company_member_id,
+                available_date,
+                start_time,
+                end_time,
+                availability_status
+            )
+        )
+
+    @staticmethod
+    def get_by_member(company_id, company_member_id):
+        query = """
+            SELECT *
+            FROM availability_schedules
+            WHERE company_id = %s
+            AND company_member_id = %s
+            AND available_date >= CURRENT_DATE
+            ORDER BY available_date ASC, start_time ASC;
+        """
+        return Database.fetch_all(query, (company_id, company_member_id))
+
+    @staticmethod
+    def delete(company_id, company_member_id, availability_id):
+        query = """
+            DELETE FROM availability_schedules
+            WHERE company_id = %s
+            AND company_member_id = %s
+            AND availability_id = %s
+            RETURNING availability_id;
+        """
+        return Database.execute(query, (company_id, company_member_id, availability_id))
+
+    @staticmethod
     def update_schedule(
         company_id,
         company_member_id,

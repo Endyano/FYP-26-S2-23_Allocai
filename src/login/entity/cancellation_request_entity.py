@@ -51,6 +51,31 @@ class CancellationRequestEntity:
         ))
 
     @staticmethod
+    def get_by_member(company_id, company_member_id):
+        query = """
+            SELECT
+                tcr.cancellation_request_id,
+                tcr.allocation_id,
+                tcr.reason,
+                tcr.request_status,
+                tcr.manager_note,
+                tcr.created_at,
+                tcr.reviewed_at,
+                t.task_id,
+                t.task_title,
+                t.task_date
+            FROM task_cancellation_requests tcr
+            JOIN task_allocations ta
+                ON ta.allocation_id = tcr.allocation_id
+                AND ta.company_id = tcr.company_id
+            JOIN tasks t ON t.task_id = ta.task_id
+            WHERE tcr.company_id = %s
+            AND tcr.requested_by = %s
+            ORDER BY tcr.created_at DESC;
+        """
+        return Database.fetch_all(query, (company_id, company_member_id))
+
+    @staticmethod
     def create(
         company_id,
         company_member_id,

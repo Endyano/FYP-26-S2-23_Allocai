@@ -1,48 +1,71 @@
 'use client';
 
-import { useState } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api';
 
 type Profile = {
+  staff_id: string | null;
+  job_title: string | null;
+  employee_type: string | null;
+  contact_number: string | null;
+  profile_description: string | null;
+  role: string;
   full_name: string;
   email: string;
-  phone: string;
-  department: string;
-  role: string;
-  employee_id: string;
-  joined_date: string;
+  phone_number: string | null;
 };
 
-const MOCK: Profile = { full_name: 'Rajan Kumar', email: 'rajan@harbourfoods.sg', phone: '+65 9876 5432', department: 'Warehouse', role: 'Part Time Staff', employee_id: 'PT-003', joined_date: '2025-10-20' };
+const EMPTY: Profile = {
+  staff_id: null, job_title: null, employee_type: null, contact_number: null,
+  profile_description: null, role: '', full_name: '', email: '', phone_number: null,
+};
 
 export default function PTProfilePage() {
-  const [profile, setProfile] = useState<Profile>(MOCK);
-  const [form, setForm] = useState<Profile>(MOCK);
-  const [loading] = useState(false);
+  const [profile, setProfile] = useState<Profile>(EMPTY);
+  const [form, setForm] = useState<Profile>(EMPTY);
+  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  useEffect(() => {
+    async function loadProfile() {
+      const result = await apiFetch<{ profile?: Profile; success: boolean; message?: string }>('/api/part-time-staff/profile');
+      if (result.success && result.profile) {
+        setProfile(result.profile);
+        setForm(result.profile);
+      } else {
+        setError(result.message || 'Failed to load profile.');
+      }
+      setLoading(false);
+    }
+    loadProfile();
+  }, []);
+
   async function handleSave() {
     setSaving(true); setError(''); setSuccess('');
-    try {
-      const res = await fetch(`${API_URL}/api/casual_staff/profile`, {
-        method: 'PUT', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_name: form.full_name, phone: form.phone }),
-      });
-      const d = await res.json();
-      if (d.success) {
-        setProfile(d.profile ?? form);
-        setEditing(false);
-        setSuccess('Profile updated successfully.');
-        localStorage.setItem('allocai_user', form.full_name.trim());
-        setTimeout(() => setSuccess(''), 3000);
-      } else { setError(d.message || 'Failed to save.'); }
-    } catch { setError('Could not reach the server.'); }
-    finally { setSaving(false); }
+    const result = await apiFetch<{ profile?: Profile; success: boolean; message?: string }>(
+      '/api/part-time-staff/profile',
+      {
+        method: 'PUT',
+        body: JSON.stringify({
+          full_name: form.full_name,
+          phone_number: form.phone_number,
+          contact_number: form.contact_number,
+          profile_description: form.profile_description,
+        }),
+      }
+    );
+    if (result.success) {
+      setProfile(prev => ({ ...prev, ...result.profile }));
+      setEditing(false);
+      setSuccess('Profile updated successfully.');
+      setTimeout(() => setSuccess(''), 3000);
+    } else {
+      setError(result.message || 'Failed to save.');
+    }
+    setSaving(false);
   }
 
   return (
@@ -56,7 +79,7 @@ export default function PTProfilePage() {
             <h2 className="text-lg font-bold text-slate-900">My Profile</h2>
             <p className="text-sm text-slate-500 mt-0.5">View and update your personal details.</p>
           </div>
-          {!editing ? (
+          {!loading && (!editing ? (
             <button onClick={() => setEditing(true)}
               className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 transition-colors shadow-sm"
             >
@@ -72,7 +95,7 @@ export default function PTProfilePage() {
                 className="rounded-xl bg-white border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
               >Cancel</button>
             </div>
-          )}
+          ))}
         </div>
 
         {loading ? (
@@ -86,13 +109,13 @@ export default function PTProfilePage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-slate-900">{profile.full_name || '—'}</p>
-                <p className="text-sm text-slate-500 mt-0.5">{profile.role || 'Part Time Staff'} · {profile.department || '—'}</p>
-                <p className="text-xs text-slate-400 mt-1">ID: {profile.employee_id || '—'}</p>
+                <p className="text-sm text-slate-500 mt-0.5 capitalize">{profile.role?.replace(/_/g, ' ') || 'Part Time Staff'}{profile.job_title ? ` · ${profile.job_title}` : ''}</p>
+                {profile.staff_id && <p className="text-xs text-slate-400 mt-1">ID: {profile.staff_id}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Editable fields */}
+              {/* Editable */}
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Full Name</label>
                 {editing ? (
@@ -104,23 +127,31 @@ export default function PTProfilePage() {
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Phone</label>
                 {editing ? (
-                  <input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+65 9XXX XXXX"
+                  <input type="tel" value={form.phone_number || ''} onChange={e => setForm(f => ({ ...f, phone_number: e.target.value }))} placeholder="+65 9XXX XXXX"
                     className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all"
                   />
-                ) : <p className="mt-1 text-slate-800 font-medium">{profile.phone || <span className="text-slate-400 italic">Not set</span>}</p>}
+                ) : <p className="mt-1 text-slate-800 font-medium">{profile.phone_number || <span className="text-slate-400 italic">Not set</span>}</p>}
               </div>
-              {/* Read-only fields */}
-              {([
-                ['Email', profile.email],
-                ['Department', profile.department],
-                ['Role', profile.role],
-                ['Joined', profile.joined_date ? new Date(profile.joined_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'],
-              ] as [string, string][]).map(([label, val]) => (
-                <div key={label}>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</label>
-                  <p className="mt-1 text-slate-800 font-medium">{val || '—'}</p>
-                </div>
-              ))}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Contact Number</label>
+                {editing ? (
+                  <input type="tel" value={form.contact_number || ''} onChange={e => setForm(f => ({ ...f, contact_number: e.target.value }))} placeholder="Alternate contact number"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all"
+                  />
+                ) : <p className="mt-1 text-slate-800 font-medium">{profile.contact_number || <span className="text-slate-400 italic">Not set</span>}</p>}
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email</label>
+                <p className="mt-1 text-slate-800 font-medium">{profile.email || '—'}</p>
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Profile Description</label>
+                {editing ? (
+                  <textarea value={form.profile_description || ''} onChange={e => setForm(f => ({ ...f, profile_description: e.target.value }))} rows={3}
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all resize-none"
+                  />
+                ) : <p className="mt-1 text-slate-800 font-medium">{profile.profile_description || <span className="text-slate-400 italic">Not set</span>}</p>}
+              </div>
             </div>
           </div>
         )}

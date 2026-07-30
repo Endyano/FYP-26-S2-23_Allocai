@@ -1,3 +1,5 @@
+from psycopg2.extras import Json
+
 from db import Database
 
 
@@ -14,7 +16,7 @@ class SubscriptionEntity:
                 staff_cap,
                 feature_gate
             FROM subscription_plans
-            WHERE plan_status = 'Active'
+            WHERE plan_status = 'active'
             ORDER BY plan_price ASC;
         """
         return Database.fetch_all(query)
@@ -25,7 +27,7 @@ class SubscriptionEntity:
             SELECT *
             FROM subscription_plans
             WHERE subscription_plan_id = %s
-            AND plan_status = 'Active';
+            AND plan_status = 'active';
         """
         return Database.fetch_one(query, (subscription_plan_id,))
 
@@ -77,16 +79,18 @@ class SubscriptionEntity:
                 created_at,
                 updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, 'Active', NOW(), NOW())
+            VALUES (%s, %s, %s, %s, %s, 'active', NOW(), NOW())
             RETURNING *;
         """
+
+        feature_gate = data.get("feature_gate")
 
         return Database.execute(query, (
             data.get("plan_name"),
             data.get("plan_description"),
             data.get("plan_price"),
             data.get("staff_cap"),
-            data.get("feature_gate")
+            Json(feature_gate) if feature_gate is not None else None
         ))
 
     @staticmethod
@@ -105,12 +109,14 @@ class SubscriptionEntity:
             RETURNING *;
         """
 
+        feature_gate = data.get("feature_gate")
+
         return Database.execute(query, (
             data.get("plan_name"),
             data.get("plan_description"),
             data.get("plan_price"),
             data.get("staff_cap"),
-            data.get("feature_gate"),
+            Json(feature_gate) if feature_gate is not None else None,
             data.get("plan_status"),
             subscription_plan_id
         ))
