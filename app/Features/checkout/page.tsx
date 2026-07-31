@@ -1,8 +1,17 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function CheckoutPage() {
+  return (
+    <Suspense fallback={null}>
+      <CheckoutContent />
+    </Suspense>
+  );
+}
+
+function CheckoutContent() {
   const router = useRouter();
   const params = useSearchParams();
   const plan = params?.get('plan') || 'pro';
