@@ -36,6 +36,17 @@ app.json_provider_class = CustomJSONProvider
 app.json = CustomJSONProvider(app)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "smart_task_allocation_secret_key")
 
+# Render sets RENDER=true automatically. In production the frontend and
+# backend live on different domains, so the session cookie needs
+# SameSite=None (with Secure, which browsers require alongside it) to be
+# sent on cross-site requests. Locally both run on http://localhost, where
+# a Secure cookie would never be set at all, so keep the Flask defaults there.
+if os.getenv("RENDER"):
+    app.config.update(
+        SESSION_COOKIE_SAMESITE="None",
+        SESSION_COOKIE_SECURE=True,
+    )
+
 allowed_origins = [
     origin.strip()
     for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
