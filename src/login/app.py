@@ -36,10 +36,16 @@ app.json_provider_class = CustomJSONProvider
 app.json = CustomJSONProvider(app)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "smart_task_allocation_secret_key")
 
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
+
 CORS(
     app,
     supports_credentials=True,
-    origins=["http://localhost:3000"]
+    origins=allowed_origins
 )
 
 app.register_blueprint(public_bp)
