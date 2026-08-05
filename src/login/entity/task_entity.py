@@ -15,7 +15,9 @@ class TaskEntity:
         task_date,
         start_time,
         end_time,
-        priority_level
+        priority_level,
+        origin="manual",
+        source_text=None
     ):
         query = """
             INSERT INTO tasks (
@@ -29,10 +31,12 @@ class TaskEntity:
                 end_time,
                 priority_level,
                 task_status,
+                origin,
+                source_text,
                 created_at,
                 updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'open', NOW(), NOW())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'open', %s, %s, NOW(), NOW())
             RETURNING *;
         """
 
@@ -45,7 +49,9 @@ class TaskEntity:
             task_date,
             start_time,
             end_time,
-            priority_level
+            priority_level,
+            origin,
+            source_text
         ))
 
         if task and required_skillset_id:

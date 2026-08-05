@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from auth_helpers import current_company_id, current_company_member_id, login_required
+from control.ai_task_control import AITaskControl
 from control.manager_control import ManagerControl
 
 manager_bp = Blueprint("manager", __name__, url_prefix="/api/manager")
@@ -81,6 +82,19 @@ def create_task():
     )
 
     return jsonify(result), 201 if result["success"] else 400
+
+
+@manager_bp.route("/tasks/draft", methods=["POST"])
+@login_required("manager")
+def draft_task():
+    data = request.get_json() or {}
+
+    result = AITaskControl.draft_task(
+        company_id=current_company_id(),
+        description=data.get("description")
+    )
+
+    return jsonify(result), 200 if result["success"] else 400
 
 
 @manager_bp.route("/tasks", methods=["GET"])

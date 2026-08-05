@@ -144,7 +144,9 @@ class ManagerControl:
             task_date=data.get("task_date"),
             start_time=data.get("start_time"),
             end_time=data.get("end_time"),
-            priority_level=data.get("priority_level")
+            priority_level=data.get("priority_level"),
+            origin=data.get("origin") or "manual",
+            source_text=data.get("source_text")
         )
 
         return {

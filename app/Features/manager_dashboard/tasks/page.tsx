@@ -74,6 +74,12 @@ export default function TasksPage() {
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
 
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftDescription, setDraftDescription] = useState('');
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState('');
+  const [draftSourceText, setDraftSourceText] = useState<string | null>(null);
+
   async function loadAll() {
     setLoading(true);
     setError('');
@@ -96,6 +102,7 @@ export default function TasksPage() {
   function openCreate() {
     setEditingTask(null);
     setForm(EMPTY_FORM);
+    setDraftSourceText(null);
     setFormError('');
     setFormSuccess('');
     setShowModal(true);
@@ -103,6 +110,7 @@ export default function TasksPage() {
 
   function openEdit(task: Task) {
     setEditingTask(task);
+    setDraftSourceText(null);
     setForm({
       task_title: task.task_title,
       task_description: task.task_description || '',
@@ -116,6 +124,55 @@ export default function TasksPage() {
     setFormError('');
     setFormSuccess('');
     setShowModal(true);
+  }
+
+  function openDraftModal() {
+    setDraftDescription('');
+    setDraftError('');
+    setShowDraftModal(true);
+  }
+
+  async function handleDraft() {
+    if (!draftDescription.trim()) {
+      setDraftError('Please describe the task you need.');
+      return;
+    }
+    setDrafting(true);
+    setDraftError('');
+    const result = await apiPost<{
+      draft?: {
+        task_title: string;
+        task_description: string;
+        task_date: string;
+        start_time: string;
+        end_time: string;
+        priority_level: string;
+        department_id: string | null;
+        required_skillset_id: string | null;
+      };
+    }>('/api/manager/tasks/draft', { description: draftDescription.trim() });
+
+    if (result.success && result.draft) {
+      setEditingTask(null);
+      setForm({
+        task_title: result.draft.task_title,
+        task_description: result.draft.task_description,
+        priority_level: result.draft.priority_level,
+        department_id: result.draft.department_id || '',
+        required_skillset_id: result.draft.required_skillset_id || '',
+        task_date: result.draft.task_date,
+        start_time: result.draft.start_time,
+        end_time: result.draft.end_time,
+      });
+      setDraftSourceText(draftDescription.trim());
+      setFormError('');
+      setFormSuccess('');
+      setShowDraftModal(false);
+      setShowModal(true);
+    } else {
+      setDraftError(result.message || 'Could not generate a draft. Please try again.');
+    }
+    setDrafting(false);
   }
 
   async function handleSave() {
@@ -135,6 +192,9 @@ export default function TasksPage() {
         task_date: form.task_date,
         start_time: form.start_time,
         end_time: form.end_time,
+        ...(!editingTask && draftSourceText
+          ? { origin: 'ai_nl', source_text: draftSourceText }
+          : {}),
       };
 
       const result = editingTask
@@ -188,12 +248,20 @@ export default function TasksPage() {
             </button>
           ))}
         </div>
-        <button onClick={openCreate}
-          className="flex items-center gap-2 rounded-full bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-rose-700 transition-colors whitespace-nowrap"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          New Task
-        </button>
+        <div className="flex gap-3">
+          <button onClick={openDraftModal}
+            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity whitespace-nowrap"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 2v4"/><circle cx="18" cy="6" r="3"/></svg>
+            Draft with AI
+          </button>
+          <button onClick={openCreate}
+            className="flex items-center gap-2 rounded-full bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-rose-700 transition-colors whitespace-nowrap"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Task
+          </button>
+        </div>
       </div>
 
       {error && <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700 font-medium">{error}</div>}
@@ -254,6 +322,47 @@ export default function TasksPage() {
           </table>
         </div>
       </div>
+
+      {/* Draft with AI Modal */}
+      {showDraftModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Draft a Task with AI</h3>
+                <p className="text-sm text-slate-500 mt-1">Describe what you need in plain English — you can edit everything before creating it.</p>
+              </div>
+              <button onClick={() => setShowDraftModal(false)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-full p-2 transition-colors border border-slate-200">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <textarea
+              value={draftDescription}
+              onChange={e => setDraftDescription(e.target.value)}
+              rows={4}
+              placeholder="e.g. Need someone to cover the evening kitchen shift this Friday, urgent, 4pm to 9pm"
+              disabled={drafting}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 font-medium focus:bg-white focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-400/10 transition-all resize-none disabled:opacity-60"
+            />
+            {draftError && <p className="mt-3 text-sm text-rose-600 font-medium">{draftError}</p>}
+            <div className="mt-6 flex gap-3">
+              <button onClick={handleDraft} disabled={drafting}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity disabled:opacity-60"
+              >
+                {drafting ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"/></svg>
+                    Drafting...
+                  </>
+                ) : 'Generate Draft'}
+              </button>
+              <button onClick={() => setShowDraftModal(false)}
+                className="rounded-xl bg-white border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create/Edit Modal */}
       {showModal && (
