@@ -360,7 +360,7 @@ class ManagerControl:
         }
 
     @staticmethod
-    def resolve_dispute(company_id, dispute_request_id, action, reviewed_by):
+    def resolve_dispute(company_id, dispute_request_id, action, reviewed_by, manager_note=None):
         if action not in ["approved", "rejected"]:
             return {
                 "success": False,
@@ -371,7 +371,8 @@ class ManagerControl:
             company_id=company_id,
             dispute_request_id=dispute_request_id,
             status=action,
-            reviewed_by=reviewed_by
+            reviewed_by=reviewed_by,
+            manager_note=manager_note
         )
 
         if not dispute:

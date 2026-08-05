@@ -1,21 +1,11 @@
 import json
-import os
 from datetime import datetime, timezone
 
-from google import genai
 from google.genai import types
 
 from entity.department_entity import DepartmentEntity
 from entity.skillset_entity import SkillsetEntity
-
-_client = None
-
-
-def _get_client():
-    global _client
-    if _client is None:
-        _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    return _client
+from gemini_client import get_gemini_client
 
 
 _DRAFT_SCHEMA = {
@@ -88,7 +78,7 @@ the described work. Only choose a department_name or skillset_name if
 it clearly matches one of the known lists above; otherwise leave it null."""
 
         try:
-            response = _get_client().models.generate_content(
+            response = get_gemini_client().models.generate_content(
                 model="gemini-flash-latest",
                 contents=prompt,
                 config=types.GenerateContentConfig(

@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from auth_helpers import current_company_id, current_company_member_id, login_required
+from control.ai_dispute_control import AIDisputeControl
 from control.ai_task_control import AITaskControl
 from control.manager_control import ManagerControl
 
@@ -186,7 +187,19 @@ def resolve_dispute(dispute_request_id):
         company_id=current_company_id(),
         dispute_request_id=dispute_request_id,
         action=data.get("action"),
-        reviewed_by=current_company_member_id()
+        reviewed_by=current_company_member_id(),
+        manager_note=data.get("manager_note")
+    )
+
+    return jsonify(result), 200 if result["success"] else 400
+
+
+@manager_bp.route("/disputes/<dispute_request_id>/ai-review", methods=["GET"])
+@login_required("manager")
+def ai_review_dispute(dispute_request_id):
+    result = AIDisputeControl.suggest_resolution(
+        company_id=current_company_id(),
+        dispute_request_id=dispute_request_id
     )
 
     return jsonify(result), 200 if result["success"] else 400

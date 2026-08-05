@@ -53,12 +53,13 @@ class DisputeRequestEntity:
         return Database.fetch_all(query, (company_id, company_member_id))
 
     @staticmethod
-    def resolve(company_id, dispute_request_id, status, reviewed_by):
+    def resolve(company_id, dispute_request_id, status, reviewed_by, manager_note=None):
         query = """
             UPDATE dispute_requests
             SET dispute_status = %s,
                 reviewed_by = %s,
-                reviewed_at = NOW()
+                reviewed_at = NOW(),
+                manager_note = COALESCE(%s, manager_note)
             WHERE company_id = %s
             AND dispute_request_id = %s
             RETURNING *;
@@ -66,9 +67,32 @@ class DisputeRequestEntity:
         return Database.execute(query, (
             status,
             reviewed_by,
+            manager_note,
             company_id,
             dispute_request_id
         ))
+
+    @staticmethod
+    def get_by_id(company_id, dispute_request_id):
+        query = """
+            SELECT
+                dr.*,
+                u.full_name,
+                u.email,
+                t.task_title,
+                whr.hours_worked
+            FROM dispute_requests dr
+            JOIN company_members cm ON cm.company_member_id = dr.requested_by
+            JOIN users u ON u.user_id = cm.user_id
+            LEFT JOIN working_hour_records whr ON whr.working_hour_id = dr.working_hour_id
+            LEFT JOIN task_allocations ta
+                ON ta.allocation_id = whr.allocation_id
+                AND ta.company_id = whr.company_id
+            LEFT JOIN tasks t ON t.task_id = ta.task_id
+            WHERE dr.company_id = %s
+            AND dr.dispute_request_id = %s;
+        """
+        return Database.fetch_one(query, (company_id, dispute_request_id))
 
     @staticmethod
     def create(

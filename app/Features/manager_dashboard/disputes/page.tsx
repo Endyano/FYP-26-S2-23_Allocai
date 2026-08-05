@@ -15,6 +15,12 @@ type DisputeRequest = {
   created_at: string;
 };
 
+type AIReview = {
+  summary: string;
+  recommendation: 'approve' | 'reject' | 'uncertain';
+  rationale: string;
+};
+
 function formatDate(d: string) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -28,6 +34,10 @@ export default function DisputesPage() {
   const [note, setNote] = useState('');
   const [resolving, setResolving] = useState(false);
 
+  const [aiReview, setAiReview] = useState<AIReview | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+
   async function loadDisputes() {
     setLoading(true);
     const result = await apiFetch<{ disputes: DisputeRequest[] }>('/api/manager/disputes');
@@ -38,6 +48,21 @@ export default function DisputesPage() {
   useEffect(() => {
     loadDisputes();
   }, []);
+
+  async function askAI() {
+    if (!reviewModal) return;
+    setAiLoading(true);
+    setAiError('');
+    const result = await apiFetch<{ review?: AIReview }>(
+      `/api/manager/disputes/${reviewModal.dispute_request_id}/ai-review`
+    );
+    if (result.success && result.review) {
+      setAiReview(result.review);
+    } else {
+      setAiError(result.message || 'Could not generate an AI review.');
+    }
+    setAiLoading(false);
+  }
 
   async function resolve(action: 'approved' | 'rejected') {
     if (!reviewModal) return;
@@ -123,7 +148,7 @@ export default function DisputesPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     {req.dispute_status === 'pending' ? (
-                      <button onClick={() => { setReviewModal(req); setNote(''); }}
+                      <button onClick={() => { setReviewModal(req); setNote(''); setAiReview(null); setAiError(''); }}
                         className="rounded-md bg-slate-900 hover:bg-slate-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-all"
                       >Review</button>
                     ) : (
@@ -159,6 +184,39 @@ export default function DisputesPage() {
 
             <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600 mb-5">
               <span className="font-semibold text-slate-700">Reason: </span>{reviewModal.reason}
+            </div>
+
+            <div className="mb-5">
+              {!aiReview && !aiLoading && (
+                <button onClick={askAI}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 2v4"/><circle cx="18" cy="6" r="3"/></svg>
+                  Ask AI for a Suggestion
+                </button>
+              )}
+              {aiLoading && (
+                <p className="text-sm text-slate-500 flex items-center gap-2">
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"/></svg>
+                  Analysing dispute...
+                </p>
+              )}
+              {aiError && <p className="text-sm text-rose-600 font-medium">{aiError}</p>}
+              {aiReview && (
+                <div className="rounded-xl border border-violet-200 bg-violet-50/50 px-4 py-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-violet-700 uppercase tracking-wider">AI Suggestion</span>
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold uppercase ${
+                      aiReview.recommendation === 'approve' ? 'bg-emerald-100 text-emerald-700' :
+                      aiReview.recommendation === 'reject' ? 'bg-rose-100 text-rose-700' :
+                      'bg-amber-100 text-amber-700'
+                    }`}>{aiReview.recommendation}</span>
+                  </div>
+                  <p className="text-sm text-slate-700">{aiReview.summary}</p>
+                  <p className="text-xs text-slate-500 italic">{aiReview.rationale}</p>
+                  <p className="text-[11px] text-slate-400">This is a suggestion only — you make the final call.</p>
+                </div>
+              )}
             </div>
 
             <div className="mb-5">
