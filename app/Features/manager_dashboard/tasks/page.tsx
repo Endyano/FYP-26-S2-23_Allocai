@@ -20,6 +20,13 @@ type Task = {
 
 type Department = { department_id: string; department_name: string };
 type Skillset = { skillset_id: string; skillset_name: string };
+type Staff = {
+  company_member_id: string;
+  full_name: string;
+  role: string;
+  employee_type: 'full_time' | 'part_time' | null;
+  remaining_eligible_hours: number | null;
+};
 
 const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
   const h = Math.floor(i / 4);
@@ -79,6 +86,13 @@ export default function TasksPage() {
   const [drafting, setDrafting] = useState(false);
   const [draftError, setDraftError] = useState('');
   const [draftSourceText, setDraftSourceText] = useState<string | null>(null);
+
+  const [assignTask, setAssignTask] = useState<Task | null>(null);
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [assignError, setAssignError] = useState('');
 
   async function loadAll() {
     setLoading(true);
@@ -173,6 +187,36 @@ export default function TasksPage() {
       setDraftError(result.message || 'Could not generate a draft. Please try again.');
     }
     setDrafting(false);
+  }
+
+  async function openAssignModal(task: Task) {
+    setAssignTask(task);
+    setSelectedStaffId('');
+    setAssignError('');
+    setStaffLoading(true);
+    const result = await apiFetch<{ staff?: Staff[] }>('/api/manager/staff');
+    setStaffList(result.success ? result.staff || [] : []);
+    setStaffLoading(false);
+  }
+
+  async function handleAssign() {
+    if (!assignTask || !selectedStaffId) {
+      setAssignError('Please select a staff member.');
+      return;
+    }
+    setAssignSaving(true);
+    setAssignError('');
+    const result = await apiFetch<{ success: boolean; message?: string }>(
+      `/api/manager/tasks/${assignTask.task_id}/assign`,
+      { method: 'POST', body: JSON.stringify({ assigned_to: selectedStaffId }) }
+    );
+    if (result.success) {
+      setAssignTask(null);
+      await loadAll();
+    } else {
+      setAssignError(result.message || 'Failed to assign task.');
+    }
+    setAssignSaving(false);
   }
 
   async function handleSave() {
@@ -304,6 +348,11 @@ export default function TasksPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {task.task_status === 'open' && (
+                        <button onClick={() => openAssignModal(task)}
+                          className="rounded-md bg-slate-900 hover:bg-slate-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-all"
+                        >Assign</button>
+                      )}
                       {task.task_status !== 'cancelled' && task.task_status !== 'completed' && (
                         <button onClick={() => openEdit(task)}
                           className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm transition-all"
@@ -322,6 +371,64 @@ export default function TasksPage() {
           </table>
         </div>
       </div>
+
+      {/* Assign Modal */}
+      {assignTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Assign Task</h3>
+                <p className="text-sm text-slate-500 mt-1">{assignTask.task_title} · {formatDate(assignTask.task_date)} {formatTime(assignTask.start_time)}–{formatTime(assignTask.end_time)}</p>
+              </div>
+              <button onClick={() => setAssignTask(null)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-full p-2 transition-colors border border-slate-200">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Staff Member <span className="text-rose-500">*</span></label>
+            {staffLoading ? (
+              <p className="mt-2 text-sm text-slate-400 animate-pulse">Loading staff...</p>
+            ) : staffList.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-500">No active full-time or part-time staff found.</p>
+            ) : (
+              <div className="mt-2 space-y-2 max-h-72 overflow-y-auto">
+                {staffList.map(s => (
+                  <label key={s.company_member_id}
+                    className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all ${selectedStaffId === s.company_member_id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:bg-slate-50'}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <input type="radio" name="assign-staff" value={s.company_member_id}
+                        checked={selectedStaffId === s.company_member_id}
+                        onChange={() => setSelectedStaffId(s.company_member_id)}
+                        className="shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{s.full_name}</p>
+                        <p className="text-xs text-slate-500 capitalize">
+                          {s.employee_type ? s.employee_type.replace('_', '-') : s.role.replace(/_/g, ' ')}
+                          {s.remaining_eligible_hours != null ? ` · ${s.remaining_eligible_hours}h remaining` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {assignError && <p className="mt-3 text-sm text-rose-600 font-medium">{assignError}</p>}
+
+            <div className="mt-6 flex gap-3">
+              <button onClick={handleAssign} disabled={assignSaving || staffLoading}
+                className="rounded-xl bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 shadow-sm transition-colors disabled:opacity-60"
+              >{assignSaving ? 'Assigning...' : 'Assign Task'}</button>
+              <button onClick={() => setAssignTask(null)}
+                className="rounded-xl bg-white border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Draft with AI Modal */}
       {showDraftModal && (
