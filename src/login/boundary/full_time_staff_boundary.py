@@ -128,6 +128,17 @@ def request_cancellation(allocation_id):
 
     return jsonify(result), 201 if result["success"] else 400
 
+# View the logged-in staff member's eligibility hours
+@full_time_staff_bp.route("/eligibility-hours", methods=["GET"])
+@login_required("full_time_staff")
+def view_eligibility_hours():
+    result = FullTimeStaffControl.view_eligibility_hours(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id()
+    )
+
+    return jsonify(result), 200
+
 # View the logged-in staff member's own cancellation requests
 @full_time_staff_bp.route("/cancellation-requests", methods=["GET"])
 @login_required("full_time_staff")

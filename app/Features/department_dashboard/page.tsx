@@ -15,6 +15,11 @@ type Task = {
   department_name: string | null;
 };
 
+type EligibilityHours = {
+  max_working_hours: number | null;
+  current_working_hours: number | null;
+};
+
 const STATUS_STYLES: Record<string, string> = {
   pending:   'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
   accepted:  'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
@@ -39,26 +44,40 @@ function formatTime(t: string) {
 
 export default function FTDashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [hours, setHours] = useState<EligibilityHours | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadTasks() {
-      const result = await apiFetch<{ tasks?: Task[] }>('/api/full-time-staff/tasks');
-      setTasks(result.tasks ?? []);
+    async function loadData() {
+      const [tasksResult, hoursResult] = await Promise.all([
+        apiFetch<{ tasks?: Task[] }>('/api/full-time-staff/tasks'),
+        apiFetch<{ eligibility_hours?: EligibilityHours }>('/api/full-time-staff/eligibility-hours'),
+      ]);
+      setTasks(tasksResult.tasks ?? []);
+      setHours(hoursResult.eligibility_hours ?? null);
       setLoading(false);
     }
-    loadTasks();
+    loadData();
   }, []);
 
   const totalTasks = tasks.length;
   const pendingTasks = tasks.filter(t => t.allocation_status === 'pending').length;
   const acceptedTasks = tasks.filter(t => t.allocation_status === 'accepted').length;
+  const hoursUsed = hours?.current_working_hours ?? null;
+  const hoursLimit = hours?.max_working_hours ?? null;
 
   return (
     <div className="space-y-8 animate-[fadeIn_0.3s_ease-out]">
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Working Hours</p>
+          <p className="text-4xl font-black text-slate-900 mt-2">
+            {loading ? <span className="text-slate-300 animate-pulse">—</span> : (hoursUsed ?? 0)}
+            <span className="text-sm font-medium text-slate-400"> / {hoursLimit ?? '—'}h</span>
+          </p>
+        </div>
         <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Upcoming Tasks</p>
           <p className="text-4xl font-black text-slate-900 mt-2">{totalTasks}</p>

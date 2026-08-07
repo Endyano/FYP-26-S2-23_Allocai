@@ -1,6 +1,7 @@
 from entity.cancellation_request_entity import CancellationRequestEntity
 from entity.staff_profile_entity import StaffProfileEntity
 from entity.task_allocation_entity import TaskAllocationEntity
+from entity.work_rule_entity import WorkRuleEntity
 
 class FullTimeStaffControl:
 
@@ -255,4 +256,22 @@ class FullTimeStaffControl:
         return {
             "success": True,
             "cancellation_requests": requests
+        }
+
+    @staticmethod
+    def view_eligibility_hours(company_id, company_member_id):
+        work_rule = WorkRuleEntity.get_by_member(
+            company_id=company_id,
+            company_member_id=company_member_id
+        )
+
+        return {
+            "success": True,
+            "eligibility_hours": {
+                "max_working_hours": work_rule.get("max_working_hours"),
+                "current_working_hours": work_rule.get("current_working_hours"),
+                "remaining_eligible_hours": work_rule.get("remaining_eligible_hours"),
+                "eligibility_status": work_rule.get("eligibility_status"),
+                "rule_status": work_rule.get("rule_status")
+            }
         }

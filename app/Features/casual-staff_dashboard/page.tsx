@@ -73,8 +73,8 @@ export default function CasualDashboard() {
           <div className="relative z-10">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Working Hours</h3>
             <p className="text-4xl font-black text-slate-900 mt-3">
-              {loading ? <span className="text-slate-300 animate-pulse">—</span> : (hoursUsed ?? '—')}
-              <span className="text-sm font-medium text-slate-400"> / {hoursLimit ?? '—'}h</span>
+              {loading ? <span className="text-slate-300 animate-pulse">—</span> : (hoursUsed ?? 0)}
+              <span className="text-sm font-medium text-slate-400"> h</span>
             </p>
           </div>
           <svg className="absolute -right-4 -bottom-4 w-32 h-32 text-indigo-50 opacity-50" viewBox="0 0 36 36">
