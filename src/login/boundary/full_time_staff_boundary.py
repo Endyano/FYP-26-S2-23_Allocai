@@ -139,6 +139,47 @@ def view_eligibility_hours():
 
     return jsonify(result), 200
 
+# View the logged-in staff member's own working-hour records
+@full_time_staff_bp.route("/working-hours", methods=["GET"])
+@login_required("full_time_staff")
+def view_working_hours():
+    result = FullTimeStaffControl.view_working_hours(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id()
+    )
+
+    return jsonify(result), 200
+
+# Submit a dispute for a working-hour record
+@full_time_staff_bp.route(
+    "/working-hours/<working_hour_id>/disputes",
+    methods=["POST"]
+)
+@login_required("full_time_staff")
+def submit_hours_dispute(working_hour_id):
+    data = request.get_json() or {}
+
+    result = FullTimeStaffControl.submit_hours_dispute(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id(),
+        working_hour_id=working_hour_id,
+        reason=data.get("reason"),
+        requested_hours=data.get("requested_hours")
+    )
+
+    return jsonify(result), 201 if result["success"] else 400
+
+# View the logged-in staff member's own dispute requests
+@full_time_staff_bp.route("/disputes", methods=["GET"])
+@login_required("full_time_staff")
+def view_disputes():
+    result = FullTimeStaffControl.view_disputes(
+        company_id=current_company_id(),
+        company_member_id=current_company_member_id()
+    )
+
+    return jsonify(result), 200
+
 # View the logged-in staff member's own cancellation requests
 @full_time_staff_bp.route("/cancellation-requests", methods=["GET"])
 @login_required("full_time_staff")

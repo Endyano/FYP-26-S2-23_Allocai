@@ -1,7 +1,9 @@
 from entity.cancellation_request_entity import CancellationRequestEntity
+from entity.dispute_request_entity import DisputeRequestEntity
 from entity.staff_profile_entity import StaffProfileEntity
 from entity.task_allocation_entity import TaskAllocationEntity
 from entity.work_rule_entity import WorkRuleEntity
+from entity.working_hour_entity import WorkingHourEntity
 
 class FullTimeStaffControl:
 
@@ -256,6 +258,82 @@ class FullTimeStaffControl:
         return {
             "success": True,
             "cancellation_requests": requests
+        }
+
+    @staticmethod
+    def submit_hours_dispute(
+        company_id,
+        company_member_id,
+        working_hour_id,
+        reason,
+        requested_hours
+    ):
+        if not reason or not reason.strip():
+            return {
+                "success": False,
+                "message": "Dispute reason is required."
+            }
+
+        try:
+            requested_hours = float(requested_hours)
+        except (TypeError, ValueError):
+            return {
+                "success": False,
+                "message": "Requested hours must be a number."
+            }
+
+        if requested_hours <= 0:
+            return {
+                "success": False,
+                "message": "Requested hours must be greater than zero."
+            }
+
+        dispute = DisputeRequestEntity.create(
+            company_id=company_id,
+            company_member_id=company_member_id,
+            working_hour_id=working_hour_id,
+            reason=reason.strip(),
+            requested_hours=requested_hours
+        )
+
+        if not dispute:
+            return {
+                "success": False,
+                "message": (
+                    "The working-hour record was not found, "
+                    "the requested hours are unchanged, or a "
+                    "pending dispute already exists."
+                )
+            }
+
+        return {
+            "success": True,
+            "message": "Hours dispute submitted successfully.",
+            "dispute": dispute
+        }
+
+    @staticmethod
+    def view_disputes(company_id, company_member_id):
+        disputes = DisputeRequestEntity.get_by_member(
+            company_id=company_id,
+            company_member_id=company_member_id
+        )
+
+        return {
+            "success": True,
+            "disputes": disputes
+        }
+
+    @staticmethod
+    def view_working_hours(company_id, company_member_id):
+        records = WorkingHourEntity.get_by_member(
+            company_id=company_id,
+            company_member_id=company_member_id
+        )
+
+        return {
+            "success": True,
+            "working_hours": records
         }
 
     @staticmethod
