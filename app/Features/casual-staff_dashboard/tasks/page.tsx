@@ -59,12 +59,17 @@ export default function TasksPage() {
 
   async function loadTasks() {
     setLoading(true);
-    const result = await apiFetch<{ schedule?: Task[]; success: boolean; message?: string }>('/api/part-time-staff/schedule');
-    if (result.success) {
-      setTasks(result.schedule ?? []);
+    const [scheduleResult, historyResult] = await Promise.all([
+      apiFetch<{ schedule?: Task[]; success: boolean; message?: string }>('/api/part-time-staff/schedule'),
+      apiFetch<{ history?: Task[]; success: boolean; message?: string }>('/api/part-time-staff/tasks/history'),
+    ]);
+    if (scheduleResult.success && historyResult.success) {
+      const merged = [...(scheduleResult.schedule ?? []), ...(historyResult.history ?? [])];
+      const deduped = Array.from(new Map(merged.map(t => [t.allocation_id, t])).values());
+      setTasks(deduped);
       setError('');
     } else {
-      setError(result.message || 'Failed to load tasks.');
+      setError(scheduleResult.message || historyResult.message || 'Failed to load tasks.');
     }
     setLoading(false);
   }

@@ -106,7 +106,7 @@ class WorkingHourEntity:
             FROM staff_profiles sp
             JOIN company_members cm ON cm.company_member_id = sp.company_member_id
             JOIN users u ON u.user_id = cm.user_id
-            JOIN staff_work_rules swr
+            LEFT JOIN staff_work_rules swr
                 ON swr.company_id = sp.company_id
                 AND swr.company_member_id = sp.company_member_id
                 AND swr.rule_status = 'Active'
@@ -128,7 +128,14 @@ class WorkingHourEntity:
 
         for row in rows:
             monthly_hours = float(row["monthly_hours"])
-            monthly_limit = float(row["monthly_limit"])
+            monthly_limit = row["monthly_limit"]
+
+            if monthly_limit is None:
+                row["over_limit"] = False
+                row["exceed_pct"] = 0
+                continue
+
+            monthly_limit = float(monthly_limit)
             row["over_limit"] = monthly_hours > monthly_limit
             row["exceed_pct"] = (
                 round(((monthly_hours - monthly_limit) / monthly_limit) * 100)

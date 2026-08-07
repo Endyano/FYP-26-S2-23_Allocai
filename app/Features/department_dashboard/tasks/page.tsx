@@ -47,12 +47,17 @@ export default function FTAssignedTasksPage() {
 
   async function loadTasks() {
     setLoading(true);
-    const result = await apiFetch<{ tasks?: Task[]; success: boolean; message?: string }>('/api/full-time-staff/tasks');
-    if (result.success) {
-      setTasks(result.tasks ?? []);
+    const [current, history] = await Promise.all([
+      apiFetch<{ tasks?: Task[]; success: boolean; message?: string }>('/api/full-time-staff/tasks'),
+      apiFetch<{ history?: Task[]; success: boolean; message?: string }>('/api/full-time-staff/tasks/history'),
+    ]);
+    if (current.success && history.success) {
+      const merged = [...(current.tasks ?? []), ...(history.history ?? [])];
+      const deduped = Array.from(new Map(merged.map(t => [t.allocation_id, t])).values());
+      setTasks(deduped);
       setError('');
     } else {
-      setError(result.message || 'Failed to load tasks.');
+      setError(current.message || history.message || 'Failed to load tasks.');
     }
     setLoading(false);
   }

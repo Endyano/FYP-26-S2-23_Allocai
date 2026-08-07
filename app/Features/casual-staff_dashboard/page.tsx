@@ -41,15 +41,18 @@ function calcHours(start: string, end: string) {
 export default function CasualDashboard() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [hours, setHours] = useState<EligibilityHours | null>(null);
+  const [completedCount, setCompletedCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      const [scheduleResult, hoursResult] = await Promise.all([
+      const [scheduleResult, historyResult, hoursResult] = await Promise.all([
         apiFetch<{ schedule?: ScheduleItem[] }>('/api/part-time-staff/schedule'),
+        apiFetch<{ history?: ScheduleItem[] }>('/api/part-time-staff/tasks/history'),
         apiFetch<{ eligibility_hours?: EligibilityHours }>('/api/part-time-staff/eligibility-hours'),
       ]);
       setSchedule(scheduleResult.schedule ?? []);
+      setCompletedCount((historyResult.history ?? []).filter(t => t.allocation_status === 'completed').length);
       setHours(hoursResult.eligibility_hours ?? null);
       setLoading(false);
     }
@@ -59,7 +62,6 @@ export default function CasualDashboard() {
   const hoursUsed = hours?.current_working_hours ?? null;
   const hoursLimit = hours?.max_working_hours ?? null;
   const dashArrayValue = hoursUsed !== null && hoursLimit ? Math.min((hoursUsed / hoursLimit) * 100, 100) : 0;
-  const completedCount = schedule.filter(s => s.allocation_status === 'completed').length;
   const upcomingCount = schedule.filter(s => s.allocation_status === 'accepted' || s.allocation_status === 'pending').length;
 
   return (
