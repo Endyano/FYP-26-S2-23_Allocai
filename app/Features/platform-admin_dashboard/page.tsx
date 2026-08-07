@@ -67,6 +67,42 @@ function formatDateTime(d: string) {
   return new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+const ACRONYMS: Record<string, string> = { ai: 'AI', sms: 'SMS', api: 'API' };
+
+function prettifyKey(key: string) {
+  return key
+    .replace(/_/g, ' ')
+    .split(' ')
+    .map(word => ACRONYMS[word.toLowerCase()] || word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function formatFeatureGates(gates: Record<string, unknown> | null | undefined): string[] {
+  if (!gates || Object.keys(gates).length === 0) return [];
+
+  const pills: string[] = [];
+
+  for (const [key, value] of Object.entries(gates)) {
+    if (value === false || value === null && key !== 'departments') continue;
+
+    if (key === 'departments') {
+      pills.push(value === null ? 'Unlimited departments' : `${value} department${value === 1 ? '' : 's'}`);
+    } else if (key === 'reports' && typeof value === 'string') {
+      pills.push(`${prettifyKey(value)} reports`);
+    } else if (key === 'alerts' && Array.isArray(value)) {
+      pills.push(`${value.map(v => prettifyKey(String(v))).join(', ')} alerts`);
+    } else if (value === true) {
+      pills.push(prettifyKey(key));
+    } else if (Array.isArray(value)) {
+      pills.push(`${prettifyKey(key)}: ${value.map(String).join(', ')}`);
+    } else {
+      pills.push(`${prettifyKey(key)}: ${String(value)}`);
+    }
+  }
+
+  return pills;
+}
+
 export default function PlatformAdminDashboard() {
   const router = useRouter();
   const [userName, setUserName] = useState<string>('Admin');
@@ -455,7 +491,19 @@ export default function PlatformAdminDashboard() {
                         <td className="px-6 py-4 font-bold text-slate-900">{plan.plan_name}</td>
                         <td className="px-6 py-4 text-slate-600">${Number(plan.plan_price).toFixed(2)}/mo</td>
                         <td className="px-6 py-4 text-slate-600 font-mono text-xs">{plan.staff_cap}</td>
-                        <td className="px-6 py-4 text-slate-500 text-xs max-w-xs truncate font-mono">{JSON.stringify(plan.feature_gate)}</td>
+                        <td className="px-6 py-4 max-w-sm">
+                          <div className="flex flex-wrap gap-1.5">
+                            {formatFeatureGates(plan.feature_gate).length === 0 ? (
+                              <span className="text-xs text-slate-400 italic">No feature gates set</span>
+                            ) : (
+                              formatFeatureGates(plan.feature_gate).map((pill, i) => (
+                                <span key={i} className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 px-2.5 py-1 text-xs font-medium ring-1 ring-inset ring-indigo-600/10">
+                                  {pill}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </td>
                         <td className="px-6 py-4 text-right">
                           <button onClick={() => openEditPlan(plan)} className="rounded-lg bg-slate-900 text-white px-4 py-1.5 text-xs font-semibold hover:bg-slate-800">
                             Edit
