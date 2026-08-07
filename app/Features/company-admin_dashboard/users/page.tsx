@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { apiFetch, apiPost } from '@/lib/api';
 
+type Department = { department_id: string; department_name: string };
+
 type Employee = {
   company_member_id: string;
   company_id: string;
@@ -26,6 +28,14 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function formatRole(role: string) {
+  if (!role) return '—';
+  return role
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 export default function UsersPage() {
   const [users, setUsers] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,8 +47,9 @@ export default function UsersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [suspendingId, setSuspendingId] = useState<string | null>(null);
 
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ email: '', role: 'manager' });
+  const [inviteForm, setInviteForm] = useState({ email: '', role: 'manager', department_id: '' });
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
@@ -47,11 +58,17 @@ export default function UsersPage() {
     setLoading(true);
     setError('');
     try {
-      const result = await apiFetch<{ employees: Employee[] }>('/api/company-admin/employees');
-      if (result.success) {
-        setUsers(result.employees || []);
+      const [employeesResult, departmentsResult] = await Promise.all([
+        apiFetch<{ employees: Employee[] }>('/api/company-admin/employees'),
+        apiFetch<{ departments: Department[] }>('/api/company-admin/departments'),
+      ]);
+      if (employeesResult.success) {
+        setUsers(employeesResult.employees || []);
       } else {
-        setError(result.message || 'Could not load employees.');
+        setError(employeesResult.message || 'Could not load employees.');
+      }
+      if (departmentsResult.success) {
+        setDepartments(departmentsResult.departments || []);
       }
     } catch {
       setError('Could not reach the server.');
@@ -114,7 +131,10 @@ export default function UsersPage() {
     setInviteError('');
     setInviteSuccess('');
     try {
-      const result = await apiPost('/api/company-admin/employees/invite', inviteForm);
+      const result = await apiPost('/api/company-admin/employees/invite', {
+        ...inviteForm,
+        department_id: inviteForm.department_id || null,
+      });
 
       if (result.success) {
         setInviteSuccess(`Invitation sent to ${inviteForm.email}.`);
@@ -162,10 +182,10 @@ export default function UsersPage() {
           onChange={e => setRoleFilter(e.target.value)}
           className="rounded-2xl bg-white border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:border-indigo-400"
         >
-          {roles.map(r => <option key={r}>{r}</option>)}
+          {roles.map(r => <option key={r} value={r}>{r === 'All' ? 'All' : formatRole(r)}</option>)}
         </select>
         <button
-          onClick={() => { setShowInviteModal(true); setInviteError(''); setInviteSuccess(''); setInviteForm({ email: '', role: 'manager' }); }}
+          onClick={() => { setShowInviteModal(true); setInviteError(''); setInviteSuccess(''); setInviteForm({ email: '', role: 'manager', department_id: '' }); }}
           className="flex items-center gap-2 rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-indigo-700 transition-colors whitespace-nowrap"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -207,7 +227,7 @@ export default function UsersPage() {
                   </td>
                   <td className="px-6 py-4 text-slate-600">{user.email}</td>
                   <td className="px-6 py-4">
-                    <span className="rounded-full bg-slate-100 text-slate-700 px-2.5 py-1 text-xs font-semibold capitalize">{user.role || '—'}</span>
+                    <span className="rounded-full bg-slate-100 text-slate-700 px-2.5 py-1 text-xs font-semibold">{formatRole(user.role)}</span>
                   </td>
                   <td className="px-6 py-4 text-slate-600">{user.department_name || '—'}</td>
                   <td className="px-6 py-4 text-slate-500 text-xs">{formatDate(user.joined_at)}</td>
@@ -278,6 +298,15 @@ export default function UsersPage() {
                   <option value="manager">Manager</option>
                   <option value="full_time_staff">Full Time Staff</option>
                   <option value="part_time_staff">Part Time Staff</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Department <span className="text-slate-400 font-normal normal-case">(optional)</span></label>
+                <select value={inviteForm.department_id} onChange={e => setInviteForm(f => ({ ...f, department_id: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
+                >
+                  <option value="">— No department —</option>
+                  {departments.map(d => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
                 </select>
               </div>
             </div>
