@@ -16,11 +16,12 @@ class WorkRuleEntity:
     @staticmethod
     def get_by_member(company_id, company_member_id):
         query = f"""
-            WITH rule AS (
+            WITH base AS (
+                SELECT %s::uuid AS company_id, %s::uuid AS company_member_id
+            ),
+            rule AS (
                 SELECT
                     staff_work_rule_id,
-                    company_id,
-                    company_member_id,
                     max_working_hours,
                     rule_period,
                     rule_status,
@@ -32,31 +33,36 @@ class WorkRuleEntity:
             )
             SELECT
                 r.staff_work_rule_id,
-                r.company_id,
-                r.company_member_id,
+                b.company_id,
+                b.company_member_id,
                 r.max_working_hours,
                 r.rule_period,
                 r.rule_status,
                 COALESCE(SUM(whr.hours_worked), 0) AS current_working_hours,
-                r.max_working_hours - COALESCE(SUM(whr.hours_worked), 0) AS remaining_eligible_hours
-            FROM rule r
+                CASE
+                    WHEN r.max_working_hours IS NOT NULL
+                        THEN r.max_working_hours - COALESCE(SUM(whr.hours_worked), 0)
+                    ELSE NULL
+                END AS remaining_eligible_hours
+            FROM base b
+            LEFT JOIN rule r ON true
             LEFT JOIN task_allocations ta
-                ON ta.company_id = r.company_id
-                AND ta.assigned_to = r.company_member_id
+                ON ta.company_id = b.company_id
+                AND ta.assigned_to = b.company_member_id
             LEFT JOIN working_hour_records whr
-                ON whr.company_id = r.company_id
+                ON whr.company_id = b.company_id
                 AND whr.allocation_id = ta.allocation_id
                 AND whr.record_status != 'disputed'
-                AND whr.work_date >= r.period_start
+                AND (r.period_start IS NULL OR whr.work_date >= r.period_start)
             GROUP BY
                 r.staff_work_rule_id,
-                r.company_id,
-                r.company_member_id,
+                b.company_id,
+                b.company_member_id,
                 r.max_working_hours,
                 r.rule_period,
                 r.rule_status;
         """
-        row = Database.fetch_one(query, (company_id, company_member_id))
+        row = Database.fetch_one(query, (company_id, company_member_id, company_id, company_member_id))
 
         if row:
             remaining = row.get("remaining_eligible_hours")

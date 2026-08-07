@@ -144,7 +144,7 @@ export default function UsersPage() {
                     <td className="px-6 py-4 text-slate-600">
                       {staff.max_working_hours != null
                         ? `${staff.current_working_hours ?? 0} / ${staff.max_working_hours} hrs`
-                        : '—'}
+                        : `${staff.current_working_hours ?? 0} hrs`}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
