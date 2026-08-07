@@ -101,6 +101,46 @@ def remove_employee(company_member_id):
 
     return jsonify(result), 200 if result["success"] else 400
 
+# View pending staff hour-limit proposals awaiting approval
+@company_admin_bp.route("/work-rules/pending", methods=["GET"])
+@login_required("company_admin")
+def view_pending_work_rules():
+    result = CompanyAdminControl.view_pending_work_rules(
+        company_id=current_company_id()
+    )
+
+    return jsonify(result), 200
+
+# Approve a pending hour-limit proposal
+@company_admin_bp.route(
+    "/work-rules/<staff_work_rule_id>/approve",
+    methods=["PATCH"]
+)
+@login_required("company_admin")
+def approve_work_rule(staff_work_rule_id):
+    result = CompanyAdminControl.approve_work_rule(
+        company_id=current_company_id(),
+        staff_work_rule_id=staff_work_rule_id,
+        reviewed_by=current_company_member_id()
+    )
+
+    return jsonify(result), 200 if result["success"] else 400
+
+# Reject a pending hour-limit proposal
+@company_admin_bp.route(
+    "/work-rules/<staff_work_rule_id>/reject",
+    methods=["PATCH"]
+)
+@login_required("company_admin")
+def reject_work_rule(staff_work_rule_id):
+    result = CompanyAdminControl.reject_work_rule(
+        company_id=current_company_id(),
+        staff_work_rule_id=staff_work_rule_id,
+        reviewed_by=current_company_member_id()
+    )
+
+    return jsonify(result), 200 if result["success"] else 400
+
 # View and filter the company's system change history
 @company_admin_bp.route("/audit-logs", methods=["GET"])
 @login_required("company_admin")

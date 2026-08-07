@@ -61,6 +61,66 @@ class ManagerControl:
             "hours_dashboard": WorkingHourEntity.get_hours_dashboard(company_id)
         }
 
+    VALID_RULE_PERIODS = {"weekly", "fortnightly", "monthly"}
+
+    @staticmethod
+    def _validate_work_rule_input(max_working_hours, rule_period):
+        if max_working_hours is None or float(max_working_hours) <= 0:
+            return "A positive hour limit is required."
+
+        if rule_period not in ManagerControl.VALID_RULE_PERIODS:
+            return "Rule period must be weekly, fortnightly, or monthly."
+
+        return None
+
+    @staticmethod
+    def propose_work_rule(company_id, company_member_id, requested_by, max_working_hours, rule_period, rule_notes=None):
+        error = ManagerControl._validate_work_rule_input(max_working_hours, rule_period)
+        if error:
+            return {"success": False, "message": error}
+
+        rule = WorkRuleEntity.propose(
+            company_id=company_id,
+            company_member_id=company_member_id,
+            requested_by=requested_by,
+            max_working_hours=max_working_hours,
+            rule_period=rule_period,
+            rule_notes=rule_notes
+        )
+
+        return {
+            "success": True,
+            "message": "Hour limit submitted for admin approval.",
+            "work_rule": rule
+        }
+
+    @staticmethod
+    def override_work_rule(company_id, company_member_id, requested_by, max_working_hours, rule_period, rule_notes=None):
+        error = ManagerControl._validate_work_rule_input(max_working_hours, rule_period)
+        if error:
+            return {"success": False, "message": error}
+
+        if not rule_notes or not rule_notes.strip():
+            return {
+                "success": False,
+                "message": "A reason is required for an override (e.g. approved overtime)."
+            }
+
+        rule = WorkRuleEntity.create_override(
+            company_id=company_id,
+            company_member_id=company_member_id,
+            requested_by=requested_by,
+            max_working_hours=max_working_hours,
+            rule_period=rule_period,
+            rule_notes=rule_notes.strip()
+        )
+
+        return {
+            "success": True,
+            "message": "Hour limit overridden immediately.",
+            "work_rule": rule
+        }
+
     @staticmethod
     def assign_skillset(company_id, company_member_id, skillset_id, assigned_by):
         if not skillset_id:

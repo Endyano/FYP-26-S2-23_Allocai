@@ -5,6 +5,19 @@ import { apiFetch, apiPost } from '@/lib/api';
 
 type Department = { department_id: string; department_name: string };
 
+type PendingWorkRule = {
+  staff_work_rule_id: string;
+  company_member_id: string;
+  current_max_working_hours: number | null;
+  current_rule_period: string | null;
+  proposed_max_working_hours: number;
+  proposed_rule_period: string;
+  proposed_notes: string | null;
+  staff_name: string;
+  employee_type: string | null;
+  requested_by_name: string | null;
+};
+
 type Employee = {
   company_member_id: string;
   company_id: string;
@@ -54,6 +67,32 @@ export default function UsersPage() {
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
 
+  const [pendingRules, setPendingRules] = useState<PendingWorkRule[]>([]);
+  const [decidingRuleId, setDecidingRuleId] = useState<string | null>(null);
+  const [ruleError, setRuleError] = useState('');
+
+  async function loadPendingRules() {
+    const result = await apiFetch<{ pending_work_rules: PendingWorkRule[] }>('/api/company-admin/work-rules/pending');
+    if (result.success) setPendingRules(result.pending_work_rules || []);
+  }
+
+  async function decideRule(rule: PendingWorkRule, action: 'approve' | 'reject') {
+    setDecidingRuleId(rule.staff_work_rule_id);
+    setRuleError('');
+    try {
+      const result = await apiFetch(`/api/company-admin/work-rules/${rule.staff_work_rule_id}/${action}`, { method: 'PATCH' });
+      if (result.success) {
+        await loadPendingRules();
+      } else {
+        setRuleError(result.message || 'Could not update this request.');
+      }
+    } catch {
+      setRuleError('Could not reach the server.');
+    } finally {
+      setDecidingRuleId(null);
+    }
+  }
+
   async function loadEmployees() {
     setLoading(true);
     setError('');
@@ -79,6 +118,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     loadEmployees();
+    loadPendingRules();
   }, []);
 
   async function toggleSuspend(user: Employee) {
@@ -164,6 +204,57 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
+
+      {/* Pending hour-limit approvals */}
+      {pendingRules.length > 0 && (
+        <div className="rounded-2xl bg-amber-50 border border-amber-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-amber-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <h2 className="text-sm font-bold text-amber-900">Pending Hour-Limit Approvals ({pendingRules.length})</h2>
+            </div>
+          </div>
+          {ruleError && <div className="px-6 py-2 text-sm text-rose-700 font-medium bg-rose-50 border-b border-rose-200">{ruleError}</div>}
+          <div className="divide-y divide-amber-200">
+            {pendingRules.map(rule => (
+              <div key={rule.staff_work_rule_id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {rule.staff_name}
+                    <span className="ml-2 text-xs font-normal text-slate-500 capitalize">{rule.employee_type?.replace(/_/g, ' ')}</span>
+                  </p>
+                  <p className="text-sm text-slate-600 mt-0.5">
+                    {rule.current_max_working_hours != null
+                      ? <>{rule.current_max_working_hours} hrs/{rule.current_rule_period} <span className="text-slate-400">→</span> </>
+                      : null}
+                    <span className="font-semibold text-amber-700">{rule.proposed_max_working_hours} hrs/{rule.proposed_rule_period}</span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Requested by {rule.requested_by_name || 'a manager'}
+                    {rule.proposed_notes ? ` — "${rule.proposed_notes}"` : ''}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => decideRule(rule, 'approve')}
+                    disabled={decidingRuleId === rule.staff_work_rule_id}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors disabled:opacity-60"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => decideRule(rule, 'reject')}
+                    disabled={decidingRuleId === rule.staff_work_rule_id}
+                    className="rounded-lg bg-white border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-60"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3">

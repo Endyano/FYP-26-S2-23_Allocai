@@ -8,6 +8,7 @@ from entity.department_entity import DepartmentEntity
 from entity.permission_entity import PermissionEntity
 from entity.skillset_entity import SkillsetEntity
 from entity.role_entity import RoleEntity
+from entity.work_rule_entity import WorkRuleEntity
 from mailer import send_invitation_email
 
 class CompanyAdminControl:
@@ -221,6 +222,53 @@ class CompanyAdminControl:
             "success": True,
             "message": "Employee removed from the company successfully.",
             "employee": employee
+        }
+
+    @staticmethod
+    def view_pending_work_rules(company_id):
+        return {
+            "success": True,
+            "pending_work_rules": WorkRuleEntity.get_pending_by_company(company_id)
+        }
+
+    @staticmethod
+    def approve_work_rule(company_id, staff_work_rule_id, reviewed_by):
+        rule = WorkRuleEntity.approve(
+            company_id=company_id,
+            staff_work_rule_id=staff_work_rule_id,
+            reviewed_by=reviewed_by
+        )
+
+        if not rule:
+            return {
+                "success": False,
+                "message": "Pending work rule was not found."
+            }
+
+        return {
+            "success": True,
+            "message": "Hour limit approved.",
+            "work_rule": rule
+        }
+
+    @staticmethod
+    def reject_work_rule(company_id, staff_work_rule_id, reviewed_by):
+        rule = WorkRuleEntity.reject(
+            company_id=company_id,
+            staff_work_rule_id=staff_work_rule_id,
+            reviewed_by=reviewed_by
+        )
+
+        if not rule:
+            return {
+                "success": False,
+                "message": "Pending work rule was not found."
+            }
+
+        return {
+            "success": True,
+            "message": "Hour limit rejected.",
+            "work_rule": rule
         }
 
     @staticmethod

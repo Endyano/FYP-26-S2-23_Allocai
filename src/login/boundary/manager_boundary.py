@@ -56,6 +56,40 @@ def hours_dashboard():
     return jsonify(ManagerControl.get_hours_dashboard(current_company_id()))
 
 
+@manager_bp.route("/staff/<company_member_id>/work-rule/propose", methods=["POST"])
+@login_required("manager")
+def propose_work_rule(company_member_id):
+    data = request.get_json() or {}
+
+    result = ManagerControl.propose_work_rule(
+        company_id=current_company_id(),
+        company_member_id=company_member_id,
+        requested_by=current_company_member_id(),
+        max_working_hours=data.get("max_working_hours"),
+        rule_period=data.get("rule_period"),
+        rule_notes=data.get("rule_notes")
+    )
+
+    return jsonify(result), 200 if result["success"] else 400
+
+
+@manager_bp.route("/staff/<company_member_id>/work-rule/override", methods=["POST"])
+@login_required("manager")
+def override_work_rule(company_member_id):
+    data = request.get_json() or {}
+
+    result = ManagerControl.override_work_rule(
+        company_id=current_company_id(),
+        company_member_id=company_member_id,
+        requested_by=current_company_member_id(),
+        max_working_hours=data.get("max_working_hours"),
+        rule_period=data.get("rule_period"),
+        rule_notes=data.get("rule_notes")
+    )
+
+    return jsonify(result), 200 if result["success"] else 400
+
+
 @manager_bp.route("/staff/<company_member_id>/skillsets", methods=["POST"])
 @login_required("manager")
 def assign_skillset(company_member_id):

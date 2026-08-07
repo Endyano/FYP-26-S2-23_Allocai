@@ -59,7 +59,21 @@ class StaffProfileEntity:
                     WHEN rp.max_working_hours IS NOT NULL
                         THEN rp.max_working_hours - COALESCE(SUM(whr.hours_worked), 0)
                     ELSE NULL
-                END AS remaining_eligible_hours
+                END AS remaining_eligible_hours,
+                (
+                    SELECT pr.proposed_max_working_hours
+                    FROM staff_work_rules pr
+                    WHERE pr.company_id = sp.company_id
+                    AND pr.company_member_id = sp.company_member_id
+                    AND pr.proposal_status = 'pending'
+                ) AS pending_max_working_hours,
+                (
+                    SELECT pr.proposed_rule_period
+                    FROM staff_work_rules pr
+                    WHERE pr.company_id = sp.company_id
+                    AND pr.company_member_id = sp.company_member_id
+                    AND pr.proposal_status = 'pending'
+                ) AS pending_rule_period
             FROM staff_profiles sp
             JOIN company_members cm ON cm.company_member_id = sp.company_member_id
             JOIN member_roles mr ON mr.company_member_id = cm.company_member_id

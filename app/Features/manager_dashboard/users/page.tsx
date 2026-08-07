@@ -17,6 +17,8 @@ type Staff = {
   current_working_hours: number | null;
   remaining_eligible_hours: number | null;
   eligibility_status: string | null;
+  pending_max_working_hours: number | null;
+  pending_rule_period: string | null;
 };
 
 type Skillset = { skillset_id: string; skillset_name: string };
@@ -33,6 +35,13 @@ export default function UsersPage() {
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState('');
   const [assignSuccess, setAssignSuccess] = useState('');
+
+  const [hourModal, setHourModal] = useState<Staff | null>(null);
+  const [hourMode, setHourMode] = useState<'propose' | 'override'>('propose');
+  const [hourForm, setHourForm] = useState({ max_working_hours: '', rule_period: 'weekly', rule_notes: '' });
+  const [savingHours, setSavingHours] = useState(false);
+  const [hourError, setHourError] = useState('');
+  const [hourSuccess, setHourSuccess] = useState('');
 
   async function loadStaff(search?: string) {
     setLoading(true);
@@ -89,6 +98,46 @@ export default function UsersPage() {
     }
   }
 
+  function openHourModal(staff: Staff) {
+    setHourModal(staff);
+    setHourMode('propose');
+    setHourForm({
+      max_working_hours: staff.max_working_hours != null ? String(staff.max_working_hours) : '',
+      rule_period: 'weekly',
+      rule_notes: '',
+    });
+    setHourError('');
+    setHourSuccess('');
+  }
+
+  async function submitHourLimit() {
+    if (!hourModal) return;
+    setSavingHours(true);
+    setHourError('');
+    try {
+      const endpoint = hourMode === 'propose' ? 'propose' : 'override';
+      const result = await apiPost(
+        `/api/manager/staff/${hourModal.company_member_id}/work-rule/${endpoint}`,
+        {
+          max_working_hours: Number(hourForm.max_working_hours),
+          rule_period: hourForm.rule_period,
+          rule_notes: hourForm.rule_notes || null,
+        }
+      );
+      if (result.success) {
+        setHourSuccess(hourMode === 'propose' ? 'Submitted for admin approval.' : 'Hour limit overridden.');
+        await loadStaff(searchQuery);
+        setTimeout(() => setHourModal(null), 1200);
+      } else {
+        setHourError(result.message || 'Could not save hour limit.');
+      }
+    } catch {
+      setHourError('Could not reach the server.');
+    } finally {
+      setSavingHours(false);
+    }
+  }
+
   const filtered = staffList;
 
   return (
@@ -142,9 +191,16 @@ export default function UsersPage() {
                     <td className="px-6 py-4 text-slate-600 capitalize">{staff.role.replace(/_/g, ' ')}</td>
                     <td className="px-6 py-4 text-slate-600 capitalize">{staff.employee_type?.replace(/_/g, ' ') || '—'}</td>
                     <td className="px-6 py-4 text-slate-600">
-                      {staff.max_working_hours != null
-                        ? `${staff.current_working_hours ?? 0} / ${staff.max_working_hours} hrs`
-                        : `${staff.current_working_hours ?? 0} hrs`}
+                      <div>
+                        {staff.max_working_hours != null
+                          ? `${staff.current_working_hours ?? 0} / ${staff.max_working_hours} hrs`
+                          : `${staff.current_working_hours ?? 0} hrs`}
+                      </div>
+                      {staff.pending_max_working_hours != null && (
+                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ring-amber-600/20">
+                          Pending: {staff.pending_max_working_hours} hrs/{staff.pending_rule_period}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -163,6 +219,12 @@ export default function UsersPage() {
                           className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-all"
                         >
                           Assign Skillset
+                        </button>
+                        <button
+                          onClick={() => openHourModal(staff)}
+                          className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-all"
+                        >
+                          Set Hour Limit
                         </button>
                       </div>
                     </td>
@@ -218,6 +280,99 @@ export default function UsersPage() {
                 {assigning ? 'Assigning...' : 'Assign'}
               </button>
               <button onClick={() => setAssignModal(null)} className="rounded-xl bg-white border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hour limit modal */}
+      {hourModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
+            <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Set Hour Limit</h3>
+                <p className="text-sm text-slate-500 mt-1">For <span className="font-semibold text-indigo-600">{hourModal.full_name}</span></p>
+              </div>
+              <button onClick={() => setHourModal(null)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-full p-2 transition-colors border border-slate-200">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            {/* Mode toggle */}
+            <div className="flex gap-1.5 bg-slate-100 rounded-xl p-1.5 mb-5">
+              <button
+                onClick={() => setHourMode('propose')}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${hourMode === 'propose' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Propose (needs admin approval)
+              </button>
+              <button
+                onClick={() => setHourMode('override')}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${hourMode === 'override' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Override now (e.g. OT)
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Max Hours</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={hourForm.max_working_hours}
+                    onChange={e => setHourForm(f => ({ ...f, max_working_hours: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Period</label>
+                  <select
+                    value={hourForm.rule_period}
+                    onChange={e => setHourForm(f => ({ ...f, rule_period: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
+                  >
+                    <option value="weekly">Weekly</option>
+                    <option value="fortnightly">Fortnightly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  {hourMode === 'override' ? 'Reason (required)' : 'Notes (optional)'}
+                </label>
+                <textarea
+                  rows={2}
+                  value={hourForm.rule_notes}
+                  onChange={e => setHourForm(f => ({ ...f, rule_notes: e.target.value }))}
+                  placeholder={hourMode === 'override' ? 'e.g. Approved overtime for this week' : ''}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none"
+                />
+              </div>
+              {hourMode === 'override' && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  This takes effect immediately without admin approval — use it only for case-by-case exceptions.
+                </p>
+              )}
+            </div>
+
+            {hourError && <p className="mt-3 text-sm text-rose-600 font-medium">{hourError}</p>}
+            {hourSuccess && <p className="mt-3 text-sm text-emerald-600 font-medium">{hourSuccess}</p>}
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={submitHourLimit}
+                disabled={savingHours || !hourForm.max_working_hours || (hourMode === 'override' && !hourForm.rule_notes.trim())}
+                className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 shadow-sm active:scale-95 disabled:opacity-60"
+              >
+                {savingHours ? 'Saving...' : hourMode === 'propose' ? 'Submit for Approval' : 'Apply Override'}
+              </button>
+              <button onClick={() => setHourModal(null)} className="rounded-xl bg-white border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">
                 Cancel
               </button>
             </div>
