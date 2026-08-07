@@ -328,10 +328,16 @@ class ManagerControl:
                 "message": "Task request was not found."
             }
 
+        # Don't pre-filter by availability here: that requires an explicit
+        # 'available' record for the exact date, which excludes full-time
+        # staff (who never track availability) and any part-time staff who
+        # simply haven't logged a day yet. check_staff_eligibility below
+        # already does the correct, permissive availability check per
+        # candidate (no record = not disqualified, only an explicit
+        # 'unavailable' record is).
         candidates = StaffProfileEntity.get_staff(
             company_id=company_id,
-            skillset_id=task.get("required_skillset_id"),
-            availability_date=task.get("task_date")
+            skillset_id=task.get("required_skillset_id")
         )
 
         suggestions = []
