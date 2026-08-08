@@ -1,12 +1,23 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { apiPost } from '@/lib/api';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams?.get('redirect') || '';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +40,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push(result.redirect_to || '/');
+      router.push(redirectTo || result.redirect_to || '/');
     } catch {
       setError('Could not reach the server. Please try again.');
     } finally {

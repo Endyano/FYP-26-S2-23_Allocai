@@ -58,7 +58,7 @@ export default function SubmitReviewPage() {
             <div className="space-y-4 text-center">
               <h1 className="text-2xl font-semibold">Log in to leave a review</h1>
               <p className="text-sm text-zinc-500">Only Allocai users can share their experience.</p>
-              <Link href="/Features/login" className="inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800">
+              <Link href="/Features/login?redirect=/Features/submit-review" className="inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800">
                 Log in
               </Link>
             </div>
