@@ -96,56 +96,6 @@ class WorkingHourEntity:
         return Database.fetch_all(query, (company_id, company_member_id))
 
     @staticmethod
-    def get_monthly_report(company_id, year, month):
-        query = """
-            SELECT
-                sp.company_member_id AS id,
-                u.full_name,
-                COALESCE(SUM(whr.hours_worked), 0) AS monthly_hours,
-                swr.max_working_hours AS monthly_limit
-            FROM staff_profiles sp
-            JOIN company_members cm ON cm.company_member_id = sp.company_member_id
-            JOIN users u ON u.user_id = cm.user_id
-            LEFT JOIN staff_work_rules swr
-                ON swr.company_id = sp.company_id
-                AND swr.company_member_id = sp.company_member_id
-                AND swr.rule_status = 'Active'
-            LEFT JOIN task_allocations ta
-                ON ta.company_id = sp.company_id
-                AND ta.assigned_to = sp.company_member_id
-            LEFT JOIN working_hour_records whr
-                ON whr.company_id = sp.company_id
-                AND whr.allocation_id = ta.allocation_id
-                AND whr.record_status != 'disputed'
-                AND EXTRACT(YEAR FROM whr.work_date) = %s
-                AND EXTRACT(MONTH FROM whr.work_date) = %s
-            WHERE sp.company_id = %s
-            GROUP BY sp.company_member_id, u.full_name, swr.max_working_hours
-            ORDER BY u.full_name ASC;
-        """
-
-        rows = Database.fetch_all(query, (year, month, company_id))
-
-        for row in rows:
-            monthly_hours = float(row["monthly_hours"])
-            monthly_limit = row["monthly_limit"]
-
-            if monthly_limit is None:
-                row["over_limit"] = False
-                row["exceed_pct"] = 0
-                continue
-
-            monthly_limit = float(monthly_limit)
-            row["over_limit"] = monthly_hours > monthly_limit
-            row["exceed_pct"] = (
-                round(((monthly_hours - monthly_limit) / monthly_limit) * 100)
-                if row["over_limit"] and monthly_limit > 0
-                else 0
-            )
-
-        return rows
-
-    @staticmethod
     def update_hours(company_id, working_hour_id, hours_worked):
         query = """
             UPDATE working_hour_records

@@ -34,13 +34,6 @@ class ManagerControl:
         }
 
     @staticmethod
-    def get_monthly_report(company_id, year, month):
-        return {
-            "success": True,
-            "report": WorkingHourEntity.get_monthly_report(company_id, year, month)
-        }
-
-    @staticmethod
     def view_staff(company_id, search=None, skillset_id=None, availability_date=None):
         staff = StaffProfileEntity.get_staff(
             company_id=company_id,

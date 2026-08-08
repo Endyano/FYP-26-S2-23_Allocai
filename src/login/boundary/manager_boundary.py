@@ -26,18 +26,6 @@ def view_staff_skillset_assignments():
     return jsonify(ManagerControl.view_staff_skillset_assignments(current_company_id()))
 
 
-@manager_bp.route("/reports", methods=["GET"])
-@login_required("manager")
-def get_monthly_report():
-    year = request.args.get("year", type=int)
-    month = request.args.get("month", type=int)
-
-    if not year or not month:
-        return jsonify({"success": False, "message": "year and month are required."}), 400
-
-    return jsonify(ManagerControl.get_monthly_report(current_company_id(), year, month))
-
-
 @manager_bp.route("/staff", methods=["GET"])
 @login_required("manager")
 def view_staff():
