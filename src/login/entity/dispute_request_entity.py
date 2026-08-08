@@ -35,6 +35,7 @@ class DisputeRequestEntity:
                 dr.requested_hours,
                 dr.current_recorded_hours,
                 dr.dispute_status,
+                dr.manager_note,
                 dr.created_at,
                 dr.reviewed_at,
                 t.task_id,

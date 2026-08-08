@@ -21,6 +21,15 @@ type WorkingHourRecord = {
   record_status: string;
 };
 
+type DisputeRecord = {
+  dispute_request_id: string;
+  task_id: string;
+  requested_hours: number;
+  current_recorded_hours: number;
+  dispute_status: 'pending' | 'approved' | 'rejected';
+  manager_note: string | null;
+};
+
 function formatDate(d: string) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -38,7 +47,7 @@ function calcHours(start: string, end: string) {
 export default function HistoryPage() {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [workingHours, setWorkingHours] = useState<WorkingHourRecord[]>([]);
-  const [disputedTaskIds, setDisputedTaskIds] = useState<Set<string>>(new Set());
+  const [disputes, setDisputes] = useState<DisputeRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [activeDispute, setActiveDispute] = useState<HistoryEntry | null>(null);
@@ -52,11 +61,11 @@ export default function HistoryPage() {
       const [historyResult, hoursResult, disputesResult] = await Promise.all([
         apiFetch<{ history?: HistoryEntry[] }>('/api/part-time-staff/tasks/history'),
         apiFetch<{ working_hours?: WorkingHourRecord[] }>('/api/part-time-staff/working-hours'),
-        apiFetch<{ disputes?: { task_id: string }[] }>('/api/part-time-staff/disputes'),
+        apiFetch<{ disputes?: DisputeRecord[] }>('/api/part-time-staff/disputes'),
       ]);
       setEntries(historyResult.history ?? []);
       setWorkingHours(hoursResult.working_hours ?? []);
-      setDisputedTaskIds(new Set((disputesResult.disputes ?? []).map(d => d.task_id)));
+      setDisputes(disputesResult.disputes ?? []);
       setLoading(false);
     }
     loadData();
@@ -64,6 +73,10 @@ export default function HistoryPage() {
 
   function workingHourFor(taskId: string) {
     return workingHours.find(w => w.task_id === taskId) || null;
+  }
+
+  function disputeFor(taskId: string) {
+    return disputes.find(d => d.task_id === taskId) || null;
   }
 
   function openDispute(entry: HistoryEntry) {
@@ -83,18 +96,29 @@ export default function HistoryPage() {
     }
     setSubmitting(true);
     setDisputeError('');
-    const result = await apiFetch<{ success: boolean; message?: string }>(
+    const requestedHours = correctHours ? parseFloat(correctHours) : record.hours_worked;
+    const result = await apiFetch<{ success: boolean; message?: string; dispute?: { dispute_request_id: string } }>(
       `/api/part-time-staff/working-hours/${record.working_hour_id}/disputes`,
       {
         method: 'POST',
         body: JSON.stringify({
           reason: disputeReason.trim(),
-          requested_hours: correctHours ? parseFloat(correctHours) : record.hours_worked,
+          requested_hours: requestedHours,
         }),
       }
     );
     if (result.success) {
-      setDisputedTaskIds(prev => new Set([...prev, activeDispute.task_id]));
+      setDisputes(prev => [
+        ...prev,
+        {
+          dispute_request_id: result.dispute?.dispute_request_id ?? crypto.randomUUID(),
+          task_id: activeDispute.task_id,
+          requested_hours: requestedHours,
+          current_recorded_hours: record.hours_worked,
+          dispute_status: 'pending',
+          manager_note: null,
+        },
+      ]);
       setActiveDispute(null);
       setCorrectHours('');
       setDisputeReason('');
@@ -126,7 +150,7 @@ export default function HistoryPage() {
                 <tr><td colSpan={6} className="px-6 py-10 text-center text-slate-500">No task history yet.</td></tr>
               ) : entries.map(entry => {
                 const record = workingHourFor(entry.task_id);
-                const disputed = disputedTaskIds.has(entry.task_id);
+                const dispute = disputeFor(entry.task_id);
                 return (
                   <tr key={entry.allocation_id} className="transition-colors hover:bg-slate-50">
                     <td className="px-6 py-4 font-medium text-slate-500">{formatDate(entry.task_date)}</td>
@@ -144,8 +168,21 @@ export default function HistoryPage() {
                     <td className="px-6 py-4 text-right">
                       {entry.allocation_status !== 'completed' ? (
                         <span className="text-xs text-slate-400">—</span>
-                      ) : disputed ? (
-                        <span className="text-xs font-semibold text-amber-600">Disputed</span>
+                      ) : dispute ? (
+                        <div className="inline-flex flex-col items-end gap-1">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${
+                            dispute.dispute_status === 'approved' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20' :
+                            dispute.dispute_status === 'rejected' ? 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20' :
+                            'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20'
+                          }`}>
+                            Dispute {dispute.dispute_status}
+                          </span>
+                          {dispute.manager_note && (
+                            <span className="text-xs text-slate-400 max-w-[200px] truncate" title={dispute.manager_note}>
+                              Note: {dispute.manager_note}
+                            </span>
+                          )}
+                        </div>
                       ) : !record ? (
                         <span className="text-xs text-slate-400 italic">Hours not yet recorded</span>
                       ) : (
