@@ -13,6 +13,11 @@ type Task = {
   task_status: 'draft' | 'open' | 'allocated' | 'completed' | 'cancelled';
 };
 
+type AllocationStatusCount = {
+  allocation_status: 'pending' | 'accepted' | 'declined' | 'completed' | 'cancelled';
+  total: number;
+};
+
 type Dispute = {
   dispute_request_id: string;
   full_name: string;
@@ -66,6 +71,9 @@ export default function DashboardPage() {
   const [resolveNote, setResolveNote] = useState('');
   const [resolving, setResolving] = useState(false);
 
+  const [allocationStatus, setAllocationStatus] = useState<AllocationStatusCount[]>([]);
+  const [allocationStatusLoading, setAllocationStatusLoading] = useState(true);
+
   async function loadStaff() {
     const result = await apiFetch<{ staff: unknown[] }>('/api/manager/staff');
     if (result.success) setStaffCount(result.staff.length);
@@ -85,10 +93,18 @@ export default function DashboardPage() {
     setDisputesLoading(false);
   }
 
+  async function loadAllocationStatus() {
+    setAllocationStatusLoading(true);
+    const result = await apiFetch<{ allocation_status: AllocationStatusCount[] }>('/api/manager/allocation-status');
+    if (result.success) setAllocationStatus(result.allocation_status || []);
+    setAllocationStatusLoading(false);
+  }
+
   useEffect(() => {
     loadStaff();
     loadTasks();
     loadDisputes();
+    loadAllocationStatus();
   }, []);
 
   async function resolveDispute(action: 'approved' | 'rejected') {
@@ -122,6 +138,10 @@ export default function DashboardPage() {
   const staffRingValue   = staffCount !== null ? Math.min((staffCount / 200) * 100, 100) : 0;
   const pendingRingValue = Math.min((pendingTasksCount / 50) * 100, 100);
   const deptRingValue    = Math.min((totalDepartments / 10) * 100, 100);
+
+  const allocationCountFor = (status: AllocationStatusCount['allocation_status']) =>
+    allocationStatus.find((a) => a.allocation_status === status)?.total ?? 0;
+  const pendingResponses = allocationCountFor('pending');
 
   const filteredTasks = taskFilter === 'All' ? tasks : tasks.filter((t) => t.task_status === taskFilter);
   const taskCounts = {
@@ -173,6 +193,42 @@ export default function DashboardPage() {
             <path className="text-rose-400" stroke="currentColor" strokeDasharray={`${pendingRingValue}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" strokeWidth="3" />
           </svg>
         </div>
+      </div>
+
+      {/* Staff Response Status */}
+      <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Staff Response Status</h2>
+            <p className="text-xs text-slate-500 mt-0.5">How staff have responded to their task assignments, company-wide</p>
+          </div>
+          {!allocationStatusLoading && pendingResponses > 0 && (
+            <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-xs font-bold px-2.5 py-0.5">
+              {pendingResponses} Awaiting Response
+            </span>
+          )}
+        </div>
+
+        {allocationStatusLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-20 rounded-2xl bg-slate-100 animate-pulse" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {([
+              { status: 'pending' as const, label: 'Pending', accent: 'text-amber-600 bg-amber-50 border-amber-200' },
+              { status: 'accepted' as const, label: 'Accepted', accent: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+              { status: 'declined' as const, label: 'Declined', accent: 'text-rose-600 bg-rose-50 border-rose-200' },
+              { status: 'completed' as const, label: 'Completed', accent: 'text-sky-600 bg-sky-50 border-sky-200' },
+              { status: 'cancelled' as const, label: 'Cancelled', accent: 'text-slate-500 bg-slate-50 border-slate-200' },
+            ]).map(({ status, label, accent }) => (
+              <div key={status} className={`rounded-2xl border p-4 ${accent}`}>
+                <p className="text-2xl font-black">{allocationCountFor(status)}</p>
+                <p className="text-xs font-bold uppercase tracking-wider mt-1">{label}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Dispute Requests */}
