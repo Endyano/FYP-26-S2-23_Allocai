@@ -47,13 +47,6 @@ class ManagerControl:
             "staff": staff
         }
 
-    @staticmethod
-    def get_hours_dashboard(company_id):
-        return {
-            "success": True,
-            "hours_dashboard": WorkingHourEntity.get_hours_dashboard(company_id)
-        }
-
     VALID_RULE_PERIODS = {"weekly", "fortnightly", "monthly"}
 
     @staticmethod

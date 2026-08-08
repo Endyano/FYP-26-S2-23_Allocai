@@ -38,12 +38,6 @@ def view_staff():
     return jsonify(result)
 
 
-@manager_bp.route("/hours-dashboard", methods=["GET"])
-@login_required("manager")
-def hours_dashboard():
-    return jsonify(ManagerControl.get_hours_dashboard(current_company_id()))
-
-
 @manager_bp.route("/staff/<company_member_id>/work-rule/propose", methods=["POST"])
 @login_required("manager")
 def propose_work_rule(company_member_id):
