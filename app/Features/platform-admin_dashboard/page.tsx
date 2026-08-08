@@ -45,6 +45,14 @@ type Review = {
   created_at: string;
 };
 
+type Faq = {
+  faq_id: string;
+  question: string;
+  answer: string;
+  display_order: number;
+  faq_status: 'Active' | 'Inactive';
+};
+
 type AuditLog = {
   audit_log_id: string;
   action_type: string;
@@ -113,6 +121,7 @@ export default function PlatformAdminDashboard() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [faqs, setFaqs] = useState<Faq[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -125,6 +134,13 @@ export default function PlatformAdminDashboard() {
   const [deleteTenantModal, setDeleteTenantModal] = useState<Company | null>(null);
   const [processing, setProcessing] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const [faqModal, setFaqModal] = useState<'new' | Faq | null>(null);
+  const [faqQuestion, setFaqQuestion] = useState('');
+  const [faqAnswer, setFaqAnswer] = useState('');
+  const [faqOrder, setFaqOrder] = useState('0');
+  const [faqFormError, setFaqFormError] = useState('');
+  const [deleteFaqModal, setDeleteFaqModal] = useState<Faq | null>(null);
 
   useEffect(() => {
     async function checkSession() {
@@ -144,18 +160,20 @@ export default function PlatformAdminDashboard() {
 
   async function loadAll() {
     setLoading(true);
-    const [companiesResult, plansResult, reviewsResult, auditResult, analyticsResult] = await Promise.all([
+    const [companiesResult, plansResult, reviewsResult, auditResult, analyticsResult, faqsResult] = await Promise.all([
       apiFetch<{ companies?: Company[] }>('/api/platform-admin/companies'),
       apiFetch<{ plans?: Plan[] }>('/api/platform-admin/subscription-plans'),
       apiFetch<{ reviews?: Review[] }>('/api/platform-admin/reviews'),
       apiFetch<{ audit_logs?: AuditLog[] }>('/api/platform-admin/audit-logs'),
       apiFetch<{ analytics?: Analytics }>('/api/platform-admin/analytics'),
+      apiFetch<{ faqs?: Faq[] }>('/api/platform-admin/faqs'),
     ]);
     setCompanies(companiesResult.companies ?? []);
     setPlans(plansResult.plans ?? []);
     setReviews(reviewsResult.reviews ?? []);
     setAuditLogs(auditResult.audit_logs ?? []);
     setAnalytics(analyticsResult.analytics ?? null);
+    setFaqs(faqsResult.faqs ?? []);
     setLoading(false);
   }
 
@@ -249,6 +267,76 @@ export default function PlatformAdminDashboard() {
     setProcessing(false);
   }
 
+  function openCreateFaq() {
+    setFaqModal('new');
+    setFaqQuestion('');
+    setFaqAnswer('');
+    setFaqOrder('0');
+    setFaqFormError('');
+  }
+
+  function openEditFaq(faq: Faq) {
+    setFaqModal(faq);
+    setFaqQuestion(faq.question);
+    setFaqAnswer(faq.answer);
+    setFaqOrder(String(faq.display_order));
+    setFaqFormError('');
+  }
+
+  async function saveFaq() {
+    if (!faqModal) return;
+    if (!faqQuestion.trim() || !faqAnswer.trim()) {
+      setFaqFormError('Question and answer are required.');
+      return;
+    }
+    setProcessing(true); setFaqFormError('');
+    const body = {
+      question: faqQuestion.trim(),
+      answer: faqAnswer.trim(),
+      display_order: Number(faqOrder) || 0,
+    };
+    const result = faqModal === 'new'
+      ? await apiFetch<{ success: boolean; message?: string }>('/api/platform-admin/faqs', { method: 'POST', body: JSON.stringify(body) })
+      : await apiFetch<{ success: boolean; message?: string }>(`/api/platform-admin/faqs/${faqModal.faq_id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    if (result.success) {
+      setFaqModal(null);
+      loadAll();
+    } else {
+      setFaqFormError(result.message || 'Failed to save FAQ.');
+    }
+    setProcessing(false);
+  }
+
+  async function toggleFaqStatus(faq: Faq) {
+    setProcessing(true); setError('');
+    const result = await apiFetch<{ success: boolean; message?: string }>(
+      `/api/platform-admin/faqs/${faq.faq_id}`,
+      { method: 'PATCH', body: JSON.stringify({ faq_status: faq.faq_status === 'Active' ? 'Inactive' : 'Active' }) }
+    );
+    if (result.success) {
+      loadAll();
+    } else {
+      setError(result.message || 'Failed to update FAQ status.');
+    }
+    setProcessing(false);
+  }
+
+  async function deleteFaq() {
+    if (!deleteFaqModal) return;
+    setProcessing(true); setError('');
+    const result = await apiFetch<{ success: boolean; message?: string }>(
+      `/api/platform-admin/faqs/${deleteFaqModal.faq_id}`,
+      { method: 'DELETE' }
+    );
+    if (result.success) {
+      setDeleteFaqModal(null);
+      loadAll();
+    } else {
+      setError(result.message || 'Failed to delete FAQ.');
+    }
+    setProcessing(false);
+  }
+
   if (!ready) return null;
 
   const totalCompanies = companies.length;
@@ -319,6 +407,14 @@ export default function PlatformAdminDashboard() {
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
             Audit Logs
+          </button>
+
+          <button
+            onClick={() => setActiveTab('faqs')}
+            className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-semibold transition-all ${activeTab === 'faqs' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            FAQs
           </button>
         </nav>
 
@@ -566,6 +662,71 @@ export default function PlatformAdminDashboard() {
           </div>
         )}
 
+        {activeTab === 'faqs' && (
+          <div className="animate-[fadeIn_0.3s_ease-out]">
+            <div className="rounded-3xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">FAQs</h2>
+                  <p className="text-sm text-slate-500 mt-0.5">Shown publicly on the landing page.</p>
+                </div>
+                <button onClick={openCreateFaq} className="rounded-lg bg-slate-900 text-white px-4 py-2 text-xs font-semibold hover:bg-slate-800">
+                  + New FAQ
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
+                    <tr>
+                      <th className="px-6 py-4 font-semibold">Order</th>
+                      <th className="px-6 py-4 font-semibold">Question</th>
+                      <th className="px-6 py-4 font-semibold">Answer</th>
+                      <th className="px-6 py-4 font-semibold">Status</th>
+                      <th className="px-6 py-4 font-semibold text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 bg-white">
+                    {loading ? (
+                      <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400 animate-pulse">Loading FAQs...</td></tr>
+                    ) : faqs.length === 0 ? (
+                      <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-500">No FAQs yet. Create one to show it on the landing page.</td></tr>
+                    ) : faqs.map(faq => (
+                      <tr key={faq.faq_id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 text-slate-400 font-mono text-xs">{faq.display_order}</td>
+                        <td className="px-6 py-4 font-bold text-slate-900 max-w-xs truncate">{faq.question}</td>
+                        <td className="px-6 py-4 text-slate-600 max-w-sm truncate">{faq.answer}</td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => toggleFaqStatus(faq)}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              faq.faq_status === 'Active'
+                                ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
+                                : 'bg-slate-100 text-slate-500 ring-1 ring-inset ring-slate-300'
+                            }`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${faq.faq_status === 'Active' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                            {faq.faq_status}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => openEditFaq(faq)} className="rounded-lg bg-slate-900 text-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-800">
+                              Edit
+                            </button>
+                            <button onClick={() => setDeleteFaqModal(faq)} className="rounded-lg bg-white border border-slate-200 text-rose-600 px-3 py-1.5 text-xs font-semibold hover:bg-rose-50">
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'reviews' && (
           <div className="animate-[fadeIn_0.3s_ease-out]">
             <div className="rounded-3xl bg-white border border-slate-100 shadow-sm overflow-hidden">
@@ -654,6 +815,47 @@ export default function PlatformAdminDashboard() {
             <div className="flex flex-col gap-3">
               <button onClick={deleteTenant} disabled={processing} className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3 rounded-xl disabled:opacity-60">{processing ? '...' : 'Yes, delete'}</button>
               <button onClick={() => setDeleteTenantModal(null)} disabled={processing} className="w-full bg-white border border-slate-200 text-slate-700 font-semibold py-3 rounded-xl">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {faqModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white px-8 py-8 rounded-3xl shadow-2xl w-full max-w-lg">
+            <h3 className="text-xl font-bold text-slate-900 mb-6">{faqModal === 'new' ? 'New FAQ' : 'Edit FAQ'}</h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Question</label>
+                <input type="text" value={faqQuestion} onChange={(e) => setFaqQuestion(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-100" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Answer</label>
+                <textarea value={faqAnswer} onChange={(e) => setFaqAnswer(e.target.value)} rows={4} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-100 resize-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Display Order</label>
+                <input type="number" value={faqOrder} onChange={(e) => setFaqOrder(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-100" />
+                <p className="mt-1 text-xs text-slate-400">Lower numbers show first on the landing page.</p>
+              </div>
+              {faqFormError && <p className="text-sm text-rose-600 font-medium">{faqFormError}</p>}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={saveFaq} disabled={processing} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-xl disabled:opacity-60">{processing ? '...' : 'Save'}</button>
+              <button onClick={() => setFaqModal(null)} disabled={processing} className="flex-1 bg-white border border-slate-200 text-slate-700 font-semibold py-3 rounded-xl">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteFaqModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white px-10 py-10 rounded-3xl shadow-2xl w-full max-w-sm text-center">
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Delete FAQ?</h3>
+            <p className="text-sm text-slate-500 mb-8">This will remove <strong className="text-slate-800">&ldquo;{deleteFaqModal.question}&rdquo;</strong> from the landing page.</p>
+            <div className="flex flex-col gap-3">
+              <button onClick={deleteFaq} disabled={processing} className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3 rounded-xl disabled:opacity-60">{processing ? '...' : 'Yes, delete'}</button>
+              <button onClick={() => setDeleteFaqModal(null)} disabled={processing} className="w-full bg-white border border-slate-200 text-slate-700 font-semibold py-3 rounded-xl">Cancel</button>
             </div>
           </div>
         </div>

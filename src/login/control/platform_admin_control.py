@@ -1,5 +1,6 @@
 from entity.audit_log_entity import AuditLogEntity
 from entity.company_entity import CompanyEntity
+from entity.faq_entity import FaqEntity
 from entity.review_entity import ReviewEntity
 from entity.subscription_entity import SubscriptionEntity
 
@@ -132,4 +133,65 @@ class PlatformAdminControl:
         return {
             "success": True,
             "audit_logs": AuditLogEntity.get_recent_logs()
+        }
+
+    @staticmethod
+    def view_faqs():
+        return {
+            "success": True,
+            "faqs": FaqEntity.get_all()
+        }
+
+    @staticmethod
+    def create_faq(data):
+        question = (data.get("question") or "").strip()
+        answer = (data.get("answer") or "").strip()
+
+        if not question or not answer:
+            return {
+                "success": False,
+                "message": "Question and answer are required."
+            }
+
+        faq = FaqEntity.create(
+            question=question,
+            answer=answer,
+            display_order=data.get("display_order") or 0
+        )
+
+        return {
+            "success": True,
+            "message": "FAQ created successfully.",
+            "faq": faq
+        }
+
+    @staticmethod
+    def update_faq(faq_id, data):
+        faq = FaqEntity.update(faq_id, data)
+
+        if not faq:
+            return {
+                "success": False,
+                "message": "FAQ was not found."
+            }
+
+        return {
+            "success": True,
+            "message": "FAQ updated successfully.",
+            "faq": faq
+        }
+
+    @staticmethod
+    def delete_faq(faq_id):
+        faq = FaqEntity.delete(faq_id)
+
+        if not faq:
+            return {
+                "success": False,
+                "message": "FAQ was not found."
+            }
+
+        return {
+            "success": True,
+            "message": "FAQ deleted successfully."
         }

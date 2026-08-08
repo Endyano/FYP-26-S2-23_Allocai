@@ -85,3 +85,32 @@ def analytics():
 @login_required("platform_admin")
 def audit_logs():
     return jsonify(PlatformAdminControl.view_audit_logs())
+
+
+@platform_admin_bp.route("/faqs", methods=["GET"])
+@login_required("platform_admin")
+def view_faqs():
+    return jsonify(PlatformAdminControl.view_faqs())
+
+
+@platform_admin_bp.route("/faqs", methods=["POST"])
+@login_required("platform_admin")
+def create_faq():
+    data = request.get_json() or {}
+    result = PlatformAdminControl.create_faq(data)
+    return jsonify(result), 201 if result["success"] else 400
+
+
+@platform_admin_bp.route("/faqs/<faq_id>", methods=["PUT", "PATCH"])
+@login_required("platform_admin")
+def update_faq(faq_id):
+    data = request.get_json() or {}
+    result = PlatformAdminControl.update_faq(faq_id, data)
+    return jsonify(result), 200 if result["success"] else 400
+
+
+@platform_admin_bp.route("/faqs/<faq_id>", methods=["DELETE"])
+@login_required("platform_admin")
+def delete_faq(faq_id):
+    result = PlatformAdminControl.delete_faq(faq_id)
+    return jsonify(result), 200 if result["success"] else 400

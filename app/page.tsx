@@ -2,19 +2,14 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { apiPost } from '@/lib/api';
+import { apiFetch, apiPost } from '@/lib/api';
 
-const FAQS = [
-  { q: 'What is Allocai?', a: 'Allocai is a smart task allocation platform that automatically assigns shifts and tasks to the right staff based on skills and availability — saving managers hours every week.' },
-  { q: 'How does it work?', a: 'Managers create tasks with a date, time, and required skills. Allocai matches them against staff who have marked themselves available, then suggests or auto-assigns the best fit.' },
-  { q: 'What are the pricing plans?', a: 'We offer three plans: Free ($0/mo, up to 5 staff), Starter ($29/mo, up to 30 staff), and Pro ($99/mo, unlimited staff with AI auto-scheduling). Visit our Pricing page for full details.' },
-  { q: 'Is there a free trial available?', a: 'Yes! Every new company account starts with a 14-day free trial of the Pro plan — no credit card required.' },
-  { q: 'How can I cancel my subscription?', a: 'You can cancel any time from your Company Admin dashboard under Billing. Your account stays active until the end of the current billing period.' },
-];
+type Faq = { faq_id: string; question: string; answer: string };
 
 export default function HomePage() {
   const [userName, setUserName] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [faqs, setFaqs] = useState<Faq[]>([]);
   const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
   const [contactSent, setContactSent] = useState(false);
   const [contactSubmitting, setContactSubmitting] = useState(false);
@@ -25,6 +20,14 @@ export default function HomePage() {
     if (savedUser) {
       setUserName(savedUser);
     }
+  }, []);
+
+  useEffect(() => {
+    async function loadFaqs() {
+      const result = await apiFetch<{ faq?: Faq[] }>('/api/public/faq');
+      setFaqs(result.faq ?? []);
+    }
+    loadFaqs();
   }, []);
 
   async function submitContactForm() {
@@ -165,29 +168,31 @@ export default function HomePage() {
         </section>
 
         {/* FAQ Section */}
+        {faqs.length > 0 && (
         <section id="faq" className="py-20 max-w-3xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-3xl font-bold tracking-tight text-zinc-900">Frequently Asked Questions</h2>
           </div>
           <div className="rounded-2xl bg-zinc-100 overflow-hidden divide-y divide-zinc-200 ring-1 ring-zinc-900/5">
-            {FAQS.map((item, i) => (
-              <div key={i}>
+            {faqs.map((item, i) => (
+              <div key={item.faq_id}>
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className="w-full flex items-center justify-between px-6 py-5 bg-white hover:bg-zinc-50 transition-colors text-left"
                 >
-                  <span className="text-base font-medium text-zinc-900">{item.q}</span>
+                  <span className="text-base font-medium text-zinc-900">{item.question}</span>
                   <span className={`ml-4 flex-shrink-0 text-2xl font-light text-zinc-500 transition-transform duration-200 ${openFaq === i ? 'rotate-45' : ''}`}>+</span>
                 </button>
                 {openFaq === i && (
                   <div className="px-6 py-4 bg-white border-t border-zinc-100">
-                    <p className="text-sm text-zinc-600 leading-relaxed">{item.a}</p>
+                    <p className="text-sm text-zinc-600 leading-relaxed">{item.answer}</p>
                   </div>
                 )}
               </div>
             ))}
           </div>
         </section>
+        )}
 
       </div>
 
