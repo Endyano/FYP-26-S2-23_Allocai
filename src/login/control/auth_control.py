@@ -524,7 +524,13 @@ class AuthControl:
         }
 
     @staticmethod
-    def submit_review(user_id, company_id, data):
+    def submit_review(user_id, company_id, role, data):
+        if role == "platform_admin":
+            return {
+                "success": False,
+                "message": "Platform admins cannot submit reviews."
+            }
+
         rating = data.get("rating")
 
         try:

@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from auth_helpers import current_company_id, current_user_id, login_required
+from auth_helpers import current_company_id, current_role, current_user_id, login_required
 from control.auth_control import AuthControl
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
@@ -105,6 +105,7 @@ def submit_review():
     result = AuthControl.submit_review(
         user_id=current_user_id(),
         company_id=current_company_id(),
+        role=current_role(),
         data=data
     )
 

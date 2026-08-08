@@ -8,6 +8,7 @@ export default function SubmitReviewPage() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [loggedIn, setLoggedIn] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('');
 
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -19,9 +20,10 @@ export default function SubmitReviewPage() {
 
   useEffect(() => {
     async function checkSession() {
-      const result = await apiFetch<{ full_name?: string }>('/api/auth/session');
+      const result = await apiFetch<{ full_name?: string; role?: string }>('/api/auth/session');
       setLoggedIn(!!result.success);
       setFullName(result.full_name || '');
+      setRole(result.role || '');
       setCheckingSession(false);
     }
     checkSession();
@@ -61,6 +63,12 @@ export default function SubmitReviewPage() {
               <Link href="/Features/login?redirect=/Features/submit-review" className="inline-block rounded-full bg-zinc-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800">
                 Log in
               </Link>
+            </div>
+          ) : role === 'platform_admin' ? (
+            <div className="space-y-3 text-center">
+              <h1 className="text-2xl font-semibold">Reviews aren't for platform admins</h1>
+              <p className="text-sm text-zinc-500">Reviews are for the companies and staff using Allocai, not the team running it.</p>
+              <Link href="/" className="inline-block text-sm font-semibold text-zinc-950 underline">Back to home</Link>
             </div>
           ) : submitted ? (
             <div className="space-y-3 text-center">

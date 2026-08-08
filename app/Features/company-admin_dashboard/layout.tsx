@@ -142,6 +142,13 @@ export default function CompanyAdminLayout({ children }: { children: React.React
               <p className="text-sm font-bold text-slate-700 capitalize mt-0.5 truncate">{userName}</p>
               <p className="text-xs text-slate-400">Company Admin</p>
             </div>
+            <Link
+              href="/Features/submit-review"
+              className="flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Leave a Review
+            </Link>
             <button
               onClick={() => setShowLogoutModal(true)}
               className="flex w-full items-center gap-4 px-4 py-3 rounded-xl text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
