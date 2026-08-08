@@ -55,11 +55,33 @@ export default function PricingPage() {
   const [userName, setUserName] = useState<string | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<{ loggedIn: boolean; hasCompany: boolean } | null>(null);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('allocai_user');
     if (savedUser) setUserName(savedUser);
   }, []);
+
+  useEffect(() => {
+    async function loadSession() {
+      const result = await apiFetch<{ company_id?: string | null }>('/api/auth/session');
+      setSession({ loggedIn: !!result.success, hasCompany: !!result.company_id });
+    }
+    loadSession();
+  }, []);
+
+  function choosePlan(plan: Plan) {
+    if (!session || !session.loggedIn) {
+      sessionStorage.setItem('allocai_selected_plan', plan.plan_name);
+      router.push('/Features/register');
+      return;
+    }
+    if (!session.hasCompany) {
+      router.push(`/Features/register/setup-workspace?plan=${encodeURIComponent(plan.plan_name)}`);
+      return;
+    }
+    router.push(`/Features/checkout?plan_id=${plan.subscription_plan_id}&plan_name=${encodeURIComponent(plan.plan_name)}`);
+  }
 
   useEffect(() => {
     async function loadPlans() {
@@ -183,7 +205,7 @@ export default function PricingPage() {
 
                   {/* CTA Button */}
                   <button
-                    onClick={() => router.push(`/Features/checkout?plan=${encodeURIComponent(plan.plan_name)}`)}
+                    onClick={() => choosePlan(plan)}
                     className={`w-full rounded-full py-3.5 text-sm font-bold transition-all ${
                       featured
                         ? 'bg-rose-500 text-white hover:bg-rose-600'
