@@ -7,6 +7,7 @@ from entity.company_entity import CompanyEntity
 from entity.company_member_entity import CompanyMemberEntity
 from entity.faq_entity import FaqEntity
 from entity.invitation_entity import InvitationEntity
+from entity.review_entity import ReviewEntity
 from entity.role_entity import RoleEntity
 from entity.staff_profile_entity import StaffProfileEntity
 from entity.subscription_entity import SubscriptionEntity
@@ -520,4 +521,43 @@ class AuthControl:
         return {
             "success": True,
             "faq": FaqEntity.get_active_faqs()
+        }
+
+    @staticmethod
+    def submit_review(user_id, company_id, data):
+        rating = data.get("rating")
+
+        try:
+            rating = int(rating)
+        except (TypeError, ValueError):
+            return {
+                "success": False,
+                "message": "A rating from 1 to 5 is required."
+            }
+
+        if rating < 1 or rating > 5:
+            return {
+                "success": False,
+                "message": "Rating must be between 1 and 5."
+            }
+
+        review = ReviewEntity.create(
+            user_id=user_id,
+            company_id=company_id,
+            rating=rating,
+            review_text=(data.get("review_text") or "").strip() or None,
+            reviewer_title=(data.get("reviewer_title") or "").strip() or None
+        )
+
+        return {
+            "success": True,
+            "message": "Thanks for your review! It will appear publicly once approved.",
+            "review": review
+        }
+
+    @staticmethod
+    def get_my_reviews(user_id):
+        return {
+            "success": True,
+            "reviews": ReviewEntity.get_by_user(user_id)
         }

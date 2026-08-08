@@ -10,6 +10,7 @@ class ReviewEntity:
                 r.review_id,
                 r.rating,
                 r.review_text,
+                r.reviewer_title,
                 r.created_at,
                 u.full_name,
                 c.company_name
@@ -30,6 +31,7 @@ class ReviewEntity:
                 r.company_id,
                 r.rating,
                 r.review_text,
+                r.reviewer_title,
                 r.review_status,
                 r.created_at,
                 u.full_name,
@@ -41,6 +43,29 @@ class ReviewEntity:
             ORDER BY r.created_at DESC;
         """
         return Database.fetch_all(query)
+
+    @staticmethod
+    def create(user_id, company_id, rating, review_text, reviewer_title):
+        query = """
+            INSERT INTO reviews (
+                user_id, company_id, rating, review_text, reviewer_title, review_status
+            )
+            VALUES (%s, %s, %s, %s, %s, 'pending')
+            RETURNING *;
+        """
+        return Database.execute(query, (
+            user_id, company_id, rating, review_text, reviewer_title
+        ))
+
+    @staticmethod
+    def get_by_user(user_id):
+        query = """
+            SELECT review_id, rating, review_text, reviewer_title, review_status, created_at
+            FROM reviews
+            WHERE user_id = %s
+            ORDER BY created_at DESC;
+        """
+        return Database.fetch_all(query, (user_id,))
 
     @staticmethod
     def update_status(review_id, review_status):

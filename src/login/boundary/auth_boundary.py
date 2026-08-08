@@ -95,3 +95,23 @@ def purchase_subscription():
 @login_required()
 def registered_faq():
     return jsonify(AuthControl.get_faq())
+
+
+@auth_bp.route("/reviews", methods=["POST"])
+@login_required()
+def submit_review():
+    data = request.get_json() or {}
+
+    result = AuthControl.submit_review(
+        user_id=current_user_id(),
+        company_id=current_company_id(),
+        data=data
+    )
+
+    return jsonify(result), 201 if result["success"] else 400
+
+
+@auth_bp.route("/reviews", methods=["GET"])
+@login_required()
+def my_reviews():
+    return jsonify(AuthControl.get_my_reviews(current_user_id()))

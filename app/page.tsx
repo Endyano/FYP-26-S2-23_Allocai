@@ -5,11 +5,20 @@ import { useState, useEffect } from 'react';
 import { apiFetch, apiPost } from '@/lib/api';
 
 type Faq = { faq_id: string; question: string; answer: string };
+type Review = {
+  review_id: string;
+  rating: number;
+  review_text: string | null;
+  reviewer_title: string | null;
+  full_name: string | null;
+  company_name: string | null;
+};
 
 export default function HomePage() {
   const [userName, setUserName] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
   const [contactSent, setContactSent] = useState(false);
   const [contactSubmitting, setContactSubmitting] = useState(false);
@@ -28,6 +37,14 @@ export default function HomePage() {
       setFaqs(result.faq ?? []);
     }
     loadFaqs();
+  }, []);
+
+  useEffect(() => {
+    async function loadReviews() {
+      const result = await apiFetch<{ reviews?: Review[] }>('/api/public/reviews');
+      setReviews(result.reviews ?? []);
+    }
+    loadReviews();
   }, []);
 
   async function submitContactForm() {
@@ -142,29 +159,35 @@ export default function HomePage() {
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold tracking-tight text-zinc-900">Loved by Managers</h2>
             <p className="mt-4 text-lg text-zinc-500">See how Allocai is changing the way teams operate.</p>
+            <Link href="/Features/submit-review" className="mt-4 inline-block text-sm font-semibold text-zinc-900 underline underline-offset-4 hover:text-zinc-600">
+              Share your experience
+            </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-900/5">
-              <p className="text-zinc-700 italic font-medium">"We used to spend 4 hours a week just fixing schedule conflicts. Allocai does it in seconds."</p>
-              <div className="mt-6 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-zinc-100 flex items-center justify-center font-bold text-zinc-500">M</div>
-                <div>
-                  <h4 className="text-sm font-bold text-zinc-900">Michael Chen</h4>
-                  <p className="text-xs text-zinc-500">Store Manager</p>
+          {reviews.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {reviews.map(review => (
+                <div key={review.review_id} className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-900/5">
+                  <div className="flex gap-0.5 mb-3">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <svg key={star} className={`w-4 h-4 ${star <= review.rating ? 'text-amber-400' : 'text-zinc-200'}`} viewBox="0 0 20 20" fill="currentColor"><path d="M10 15.27L16.18 19l-1.64-7.03L20 7.24l-7.19-.61L10 0 7.19 6.63 0 7.24l5.46 4.73L3.82 19z"/></svg>
+                    ))}
+                  </div>
+                  {review.review_text && <p className="text-zinc-700 italic font-medium">&ldquo;{review.review_text}&rdquo;</p>}
+                  <div className="mt-6 flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-zinc-100 flex items-center justify-center font-bold text-zinc-500">
+                      {(review.full_name || '?').charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-zinc-900">{review.full_name || 'Allocai user'}</h4>
+                      <p className="text-xs text-zinc-500">{[review.reviewer_title, review.company_name].filter(Boolean).join(' · ') || null}</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-            <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-900/5">
-              <p className="text-zinc-700 italic font-medium">"The real-time sync means my casual staff never show up to a shift wondering what they need to do."</p>
-              <div className="mt-6 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-zinc-100 flex items-center justify-center font-bold text-zinc-500">S</div>
-                <div>
-                  <h4 className="text-sm font-bold text-zinc-900">Sarah Jenkins</h4>
-                  <p className="text-xs text-zinc-500">Department Head</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          ) : (
+            <p className="text-center text-zinc-400 text-sm">No reviews yet — be the first to share your experience.</p>
+          )}
         </section>
 
         {/* FAQ Section */}
