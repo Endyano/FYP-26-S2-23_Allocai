@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { apiPost } from '@/lib/api';
 
 const FAQS = [
   { q: 'What is Allocai?', a: 'Allocai is a smart task allocation platform that automatically assigns shifts and tasks to the right staff based on skills and availability — saving managers hours every week.' },
@@ -16,6 +17,8 @@ export default function HomePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
   const [contactSent, setContactSent] = useState(false);
+  const [contactSubmitting, setContactSubmitting] = useState(false);
+  const [contactError, setContactError] = useState('');
 
   useEffect(() => {
     const savedUser = localStorage.getItem('allocai_user');
@@ -23,6 +26,23 @@ export default function HomePage() {
       setUserName(savedUser);
     }
   }, []);
+
+  async function submitContactForm() {
+    setContactSubmitting(true);
+    setContactError('');
+    const result = await apiPost('/api/public/contact', {
+      name: contactForm.name,
+      email: contactForm.email,
+      subject: 'Website Enquiry',
+      message: contactForm.message,
+    });
+    if (result.success) {
+      setContactSent(true);
+    } else {
+      setContactError(result.message || 'Could not send your message. Please try again.');
+    }
+    setContactSubmitting(false);
+  }
 
   const handleLogout = () => {
     const isConfirmed = window.confirm("Are you sure you want to log out?");
@@ -213,7 +233,7 @@ export default function HomePage() {
                     >Send another</button>
                   </div>
                 ) : (
-                  <form className="space-y-4" onSubmit={e => { e.preventDefault(); setContactSent(true); }}>
+                  <form className="space-y-4" onSubmit={e => { e.preventDefault(); submitContactForm(); }}>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-xs font-medium text-zinc-500 mb-1 block">Name</label>
@@ -237,9 +257,12 @@ export default function HomePage() {
                         className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:bg-white transition-all resize-none"
                       />
                     </div>
-                    <button type="submit"
-                      className="w-full rounded-lg bg-zinc-900 px-6 py-3 text-sm font-semibold text-white hover:bg-zinc-800 transition-colors"
-                    >Send Message</button>
+                    {contactError && (
+                      <p className="text-sm text-rose-600 font-medium">{contactError}</p>
+                    )}
+                    <button type="submit" disabled={contactSubmitting}
+                      className="w-full rounded-lg bg-zinc-900 px-6 py-3 text-sm font-semibold text-white hover:bg-zinc-800 transition-colors disabled:opacity-60"
+                    >{contactSubmitting ? 'Sending...' : 'Send Message'}</button>
                   </form>
                 )}
               </div>
