@@ -1,14 +1,25 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiFetch, apiPost } from '@/lib/api';
 
+const ROLE_DASHBOARD_MAP: Record<string, string> = {
+  manager: '/Features/manager_dashboard',
+  company_admin: '/Features/company-admin_dashboard',
+  full_time_staff: '/Features/department_dashboard',
+  part_time_staff: '/Features/casual-staff_dashboard',
+  registered_user: '/Features/register/setup-workspace',
+};
+
 export default function SubmitReviewPage() {
+  const router = useRouter();
   const [checkingSession, setCheckingSession] = useState(true);
   const [loggedIn, setLoggedIn] = useState(false);
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -17,6 +28,14 @@ export default function SubmitReviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+
+  const dashboardPath = ROLE_DASHBOARD_MAP[role] || '/';
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    await apiFetch('/api/auth/logout', { method: 'POST' });
+    router.push('/');
+  }
 
   useEffect(() => {
     async function checkSession() {
@@ -71,13 +90,29 @@ export default function SubmitReviewPage() {
               <Link href="/" className="inline-block text-sm font-semibold text-zinc-950 underline">Back to home</Link>
             </div>
           ) : submitted ? (
-            <div className="space-y-3 text-center">
+            <div className="space-y-5 text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
                 <svg className="w-6 h-6 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
-              <h1 className="text-2xl font-semibold">Thanks for the review!</h1>
-              <p className="text-sm text-zinc-500">It'll appear on our landing page once approved.</p>
-              <Link href="/" className="inline-block text-sm font-semibold text-zinc-950 underline">Back to home</Link>
+              <div>
+                <h1 className="text-2xl font-semibold">Thanks for the review!</h1>
+                <p className="text-sm text-zinc-500 mt-1">It'll appear on our landing page once approved.</p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => router.push(dashboardPath)}
+                  className="rounded-full bg-zinc-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                >
+                  Go to Dashboard
+                </button>
+                <button
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="text-sm font-semibold text-zinc-500 hover:text-zinc-900 transition disabled:opacity-60"
+                >
+                  {loggingOut ? 'Logging out...' : 'Log out'}
+                </button>
+              </div>
             </div>
           ) : (
             <>

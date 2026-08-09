@@ -58,14 +58,10 @@ export default function PricingPage() {
   const [session, setSession] = useState<{ loggedIn: boolean; hasCompany: boolean } | null>(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('allocai_user');
-    if (savedUser) setUserName(savedUser);
-  }, []);
-
-  useEffect(() => {
     async function loadSession() {
-      const result = await apiFetch<{ company_id?: string | null }>('/api/auth/session');
+      const result = await apiFetch<{ full_name?: string; company_id?: string | null }>('/api/auth/session');
       setSession({ loggedIn: !!result.success, hasCompany: !!result.company_id });
+      if (result.success) setUserName(result.full_name || null);
     }
     loadSession();
   }, []);
@@ -94,8 +90,8 @@ export default function PricingPage() {
 
   const maxPrice = Math.max(0, ...plans.map(p => Number(p.plan_price)));
 
-  const handleLogout = () => {
-    localStorage.removeItem('allocai_user');
+  const handleLogout = async () => {
+    await apiFetch('/api/auth/logout', { method: 'POST' });
     setUserName(null);
   };
 

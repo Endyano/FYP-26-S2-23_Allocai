@@ -25,10 +25,11 @@ export default function HomePage() {
   const [contactError, setContactError] = useState('');
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('allocai_user');
-    if (savedUser) {
-      setUserName(savedUser);
+    async function loadSession() {
+      const result = await apiFetch<{ full_name?: string }>('/api/auth/session');
+      if (result.success) setUserName(result.full_name || null);
     }
+    loadSession();
   }, []);
 
   useEffect(() => {
@@ -64,11 +65,11 @@ export default function HomePage() {
     setContactSubmitting(false);
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     const isConfirmed = window.confirm("Are you sure you want to log out?");
     if (isConfirmed) {
-      localStorage.removeItem('allocai_user');
-      setUserName(null); 
+      await apiFetch('/api/auth/logout', { method: 'POST' });
+      setUserName(null);
     }
   };
 
