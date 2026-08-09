@@ -97,10 +97,10 @@ class PlatformAdminControl:
 
     @staticmethod
     def moderate_review(review_id, review_status):
-        if review_status not in ["published", "rejected", "pending"]:
+        if review_status not in ["published", "pending"]:
             return {
                 "success": False,
-                "message": "Review status must be published, rejected, or pending."
+                "message": "Review status must be published or pending."
             }
 
         review = ReviewEntity.update_status(review_id, review_status)

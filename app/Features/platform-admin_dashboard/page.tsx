@@ -41,7 +41,7 @@ type Review = {
   company_name: string | null;
   rating: number;
   review_text: string;
-  review_status: 'pending' | 'published' | 'rejected';
+  review_status: 'pending' | 'published';
   created_at: string;
 };
 
@@ -253,16 +253,17 @@ export default function PlatformAdminDashboard() {
     setProcessing(false);
   }
 
-  async function resolveReview(reviewId: string, status: 'published' | 'rejected') {
+  async function toggleReviewVisibility(review: Review) {
     setProcessing(true); setError('');
+    const nextStatus = review.review_status === 'published' ? 'pending' : 'published';
     const result = await apiFetch<{ success: boolean; message?: string }>(
-      `/api/platform-admin/reviews/${reviewId}/moderate`,
-      { method: 'PATCH', body: JSON.stringify({ review_status: status }) }
+      `/api/platform-admin/reviews/${review.review_id}/moderate`,
+      { method: 'PATCH', body: JSON.stringify({ review_status: nextStatus }) }
     );
     if (result.success) {
       loadAll();
     } else {
-      setError(result.message || 'Failed to moderate review.');
+      setError(result.message || 'Failed to update review.');
     }
     setProcessing(false);
   }
@@ -730,34 +731,56 @@ export default function PlatformAdminDashboard() {
         {activeTab === 'reviews' && (
           <div className="animate-[fadeIn_0.3s_ease-out]">
             <div className="rounded-3xl bg-white border border-slate-100 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-slate-50 flex items-center gap-3">
-                <h2 className="text-lg font-bold text-slate-900">Moderate Reviews</h2>
-                <span className="text-sm font-semibold text-slate-400">{pendingReviewsCount} Pending</span>
+              <div className="p-6 border-b border-slate-50">
+                <h2 className="text-lg font-bold text-slate-900">Reviews</h2>
+                <p className="text-sm text-slate-500 mt-0.5">Choose which reviews to show on the landing page. Every review submitted is listed here — nothing is ever deleted or rejected.</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
                     <tr>
                       <th className="px-6 py-4 font-semibold">Author</th>
+                      <th className="px-6 py-4 font-semibold">Rating</th>
                       <th className="px-6 py-4 font-semibold">Review Text</th>
+                      <th className="px-6 py-4 font-semibold">Status</th>
                       <th className="px-6 py-4 font-semibold text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 bg-white">
                     {loading ? (
-                      <tr><td colSpan={3} className="px-6 py-10 text-center text-slate-400 animate-pulse">Loading reviews...</td></tr>
-                    ) : pendingReviews.length === 0 ? (
-                      <tr><td colSpan={3} className="px-6 py-10 text-center text-slate-500">No pending reviews.</td></tr>
-                    ) : pendingReviews.map(rev => (
+                      <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400 animate-pulse">Loading reviews...</td></tr>
+                    ) : reviews.length === 0 ? (
+                      <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-500">No reviews submitted yet.</td></tr>
+                    ) : reviews.map(rev => (
                       <tr key={rev.review_id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">
                           {rev.full_name || rev.email || '—'}
                           {rev.company_name && <p className="text-xs text-slate-400 font-normal">{rev.company_name}</p>}
                         </td>
+                        <td className="px-6 py-4 text-slate-600 whitespace-nowrap">{'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}</td>
                         <td className="px-6 py-4 text-slate-600 max-w-sm">{rev.review_text}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            rev.review_status === 'published'
+                              ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
+                              : 'bg-slate-100 text-slate-500 ring-1 ring-inset ring-slate-300'
+                          }`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${rev.review_status === 'published' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                            {rev.review_status === 'published' ? 'Shown' : 'Hidden'}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 text-right whitespace-nowrap">
-                          <button onClick={() => resolveReview(rev.review_id, 'published')} disabled={processing} className="rounded-lg bg-emerald-50 text-emerald-700 px-3 py-1.5 text-xs font-bold mr-2 hover:bg-emerald-100 disabled:opacity-60">Approve</button>
-                          <button onClick={() => resolveReview(rev.review_id, 'rejected')} disabled={processing} className="rounded-lg bg-rose-50 text-rose-700 px-3 py-1.5 text-xs font-bold hover:bg-rose-100 disabled:opacity-60">Reject</button>
+                          <button
+                            onClick={() => toggleReviewVisibility(rev)}
+                            disabled={processing}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-60 ${
+                              rev.review_status === 'published'
+                                ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                            }`}
+                          >
+                            {rev.review_status === 'published' ? 'Hide' : 'Show on Landing Page'}
+                          </button>
                         </td>
                       </tr>
                     ))}
