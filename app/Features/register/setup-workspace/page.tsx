@@ -145,7 +145,7 @@ function SetupWorkspaceContent() {
         return;
       }
 
-      router.push("/Features/register/quickstart");
+      router.push("/Features/company-admin_dashboard");
     } catch {
       setCompanyError("Could not reach the server. Please try again.");
     } finally {
