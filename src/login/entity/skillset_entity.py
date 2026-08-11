@@ -44,6 +44,16 @@ class SkillsetEntity:
         return Database.execute(query, (skillset_id, company_id, staff_skillset_id))
 
     @staticmethod
+    def unassign_from_staff(company_id, staff_skillset_id):
+        query = """
+            DELETE FROM staff_skillsets
+            WHERE company_id = %s
+            AND staff_skillset_id = %s
+            RETURNING *;
+        """
+        return Database.execute(query, (company_id, staff_skillset_id))
+
+    @staticmethod
     def get_staff_assignments_by_company(company_id):
         query = """
             SELECT

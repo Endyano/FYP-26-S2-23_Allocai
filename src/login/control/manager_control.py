@@ -169,6 +169,24 @@ class ManagerControl:
         }
 
     @staticmethod
+    def unassign_staff_skillset(company_id, staff_skillset_id):
+        result = SkillsetEntity.unassign_from_staff(
+            company_id=company_id,
+            staff_skillset_id=staff_skillset_id
+        )
+
+        if not result:
+            return {
+                "success": False,
+                "message": "Staff skillset record was not found."
+            }
+
+        return {
+            "success": True,
+            "message": "Skillset removed successfully."
+        }
+
+    @staticmethod
     def create_task(company_id, created_by, data):
         required_fields = [
             "department_id",

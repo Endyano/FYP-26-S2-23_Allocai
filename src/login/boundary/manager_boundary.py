@@ -179,6 +179,17 @@ def update_staff_skillset(staff_skillset_id):
     return jsonify(result), 200 if result["success"] else 400
 
 
+@manager_bp.route("/staff-skillsets/<staff_skillset_id>", methods=["DELETE"])
+@login_required("manager")
+def unassign_staff_skillset(staff_skillset_id):
+    result = ManagerControl.unassign_staff_skillset(
+        company_id=current_company_id(),
+        staff_skillset_id=staff_skillset_id
+    )
+
+    return jsonify(result), 200 if result["success"] else 400
+
+
 @manager_bp.route("/tasks/<task_id>/suggestions", methods=["GET"])
 @login_required("manager")
 def allocation_suggestions(task_id):

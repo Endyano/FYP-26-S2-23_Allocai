@@ -20,6 +20,7 @@ export default function SkillsetsPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState('');
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   async function loadAll() {
     setLoading(true);
@@ -67,6 +68,16 @@ export default function SkillsetsPage() {
     finally { setSaving(false); }
   }
 
+  async function unassignSkill(staffSkillsetId: string) {
+    setRemovingId(staffSkillsetId);
+    try {
+      const result = await apiFetch(`/api/manager/staff-skillsets/${staffSkillsetId}`, { method: 'DELETE' });
+      if (result.success) await loadAll();
+      else setError(result.message || 'Failed to remove skillset.');
+    } catch { setError('Could not reach the server.'); }
+    finally { setRemovingId(null); }
+  }
+
   const filtered = staff.filter(s =>
     s.full_name.toLowerCase().includes(search.toLowerCase())
   );
@@ -103,9 +114,8 @@ export default function SkillsetsPage() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={3} className="px-6 py-12 text-center text-slate-500">No staff found.</td></tr>
               ) : filtered.map(member => {
-                const assignedNames = assignments
-                  .filter(a => a.company_member_id === member.company_member_id)
-                  .map(a => a.skillset_name);
+                const memberAssignments = assignments
+                  .filter(a => a.company_member_id === member.company_member_id);
                 return (
                   <tr key={member.company_member_id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-6 py-4 font-medium text-slate-900">
@@ -117,10 +127,20 @@ export default function SkillsetsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {assignedNames.length > 0 ? (
+                      {memberAssignments.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
-                          {assignedNames.map(name => (
-                            <span key={name} className="rounded-full bg-rose-50 text-rose-700 px-2 py-0.5 text-xs font-medium">{name}</span>
+                          {memberAssignments.map(a => (
+                            <span key={a.staff_skillset_id} className="inline-flex items-center gap-1 rounded-full bg-rose-50 text-rose-700 pl-2 pr-1 py-0.5 text-xs font-medium">
+                              {a.skillset_name}
+                              <button
+                                onClick={() => unassignSkill(a.staff_skillset_id)}
+                                disabled={removingId === a.staff_skillset_id}
+                                title="Unassign"
+                                className="rounded-full hover:bg-rose-200 disabled:opacity-50 transition-colors p-0.5"
+                              >
+                                <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                              </button>
+                            </span>
                           ))}
                         </div>
                       ) : (
