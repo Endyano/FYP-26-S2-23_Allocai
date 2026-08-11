@@ -30,6 +30,15 @@ export default function CasualLayout({ children }: { children: React.ReactNode }
     }
 
     checkSession();
+
+    // A browser back/forward navigation can restore this page from
+    // bfcache without re-running the mount effect, which would leave a
+    // logged-out or suspended session showing a stale dashboard.
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) checkSession();
+    }
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
   }, [router]);
 
   const confirmLogout = async () => {
