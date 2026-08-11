@@ -682,12 +682,30 @@ class CompanyAdminControl:
         )
 
         if not skillset:
-            return {
-                "success": False,
-                "message": (
+            in_use = SkillsetEntity.is_in_use(
+                company_id=company_id,
+                skillset_id=skillset_id
+            )
+
+            if in_use["has_active_task"] and in_use["has_staff_assignment"]:
+                message = (
+                    "Skillset cannot be deleted because it is required "
+                    "by an active task and assigned to staff members."
+                )
+            elif in_use["has_staff_assignment"]:
+                message = (
+                    "Skillset cannot be deleted because it is still "
+                    "assigned to one or more staff members."
+                )
+            else:
+                message = (
                     "Skillset cannot be deleted because it "
                     "is required by an active task."
                 )
+
+            return {
+                "success": False,
+                "message": message
             }
 
         AuditLogEntity.create(

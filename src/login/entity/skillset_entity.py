@@ -151,8 +151,43 @@ class SkillsetEntity:
         )
 
     @staticmethod
+    def is_in_use(company_id, skillset_id):
+        # Reports whether a skillset is currently blocking its own
+        # deletion, and by which reason, so the caller can show a
+        # specific message instead of a generic one.
+        has_active_task = Database.fetch_one(
+            """
+            SELECT 1
+            FROM task_skillsets
+            JOIN tasks ON tasks.task_id = task_skillsets.task_id
+            WHERE tasks.company_id = %s
+            AND task_skillsets.skillset_id = %s
+            AND tasks.task_status NOT IN ('completed', 'cancelled')
+            LIMIT 1;
+            """,
+            (company_id, skillset_id)
+        ) is not None
+
+        has_staff_assignment = Database.fetch_one(
+            """
+            SELECT 1
+            FROM staff_skillsets
+            WHERE company_id = %s
+            AND skillset_id = %s
+            LIMIT 1;
+            """,
+            (company_id, skillset_id)
+        ) is not None
+
+        return {
+            "has_active_task": has_active_task,
+            "has_staff_assignment": has_staff_assignment
+        }
+
+    @staticmethod
     def delete(company_id, skillset_id):
-        # Soft-delete a skillset with no active tasks
+        # Soft-delete a skillset with no active tasks and no staff
+        # assignments
         query = """
             UPDATE skillsets
             SET
@@ -170,6 +205,12 @@ class SkillsetEntity:
                     'completed',
                     'cancelled'
                 )
+            )
+            AND NOT EXISTS (
+                SELECT 1
+                FROM staff_skillsets
+                WHERE staff_skillsets.company_id = skillsets.company_id
+                AND staff_skillsets.skillset_id = skillsets.skillset_id
             )
             RETURNING *;
         """
