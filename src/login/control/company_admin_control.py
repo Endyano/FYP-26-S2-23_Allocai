@@ -885,8 +885,7 @@ class CompanyAdminControl:
                 "success": False,
                 "message": (
                     "The employee or role was not found, "
-                    "the employee is inactive, or the role "
-                    "is already assigned."
+                    "or the employee is inactive."
                 )
             }
 

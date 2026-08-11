@@ -394,40 +394,48 @@ class RoleEntity:
         role_id,
         assigned_by
     ):
-        # Assign a company role to an active employee
+        # A member holds exactly one role at a time, so validate the member
+        # and role first -- if either is invalid we must not touch their
+        # existing role.
+        valid = Database.fetch_one(
+            """
+            SELECT cm.company_member_id
+            FROM company_members cm
+            JOIN roles r ON r.company_id = cm.company_id
+            WHERE cm.company_id = %s
+            AND cm.company_member_id = %s
+            AND cm.member_status = 'active'
+            AND r.role_id = %s;
+            """,
+            (company_id, company_member_id, role_id)
+        )
+
+        if not valid:
+            return None
+
+        # Replace any existing role(s) with the new one in a single
+        # transaction, so the member is never left with zero roles.
         query = """
+            WITH removed AS (
+                DELETE FROM member_roles
+                WHERE company_member_id = %s
+            )
             INSERT INTO member_roles (
                 company_member_id,
                 role_id,
                 assigned_by,
                 assigned_at
             )
-            SELECT
-                cm.company_member_id,
-                r.role_id,
-                %s,
-                NOW()
-            FROM company_members cm
-            JOIN roles r
-                ON r.company_id = cm.company_id
-            WHERE cm.company_id = %s
-            AND cm.company_member_id = %s
-            AND cm.member_status = 'active'
-            AND r.role_id = %s
-            ON CONFLICT (
-                company_member_id,
-                role_id
-            )
-            DO NOTHING
+            VALUES (%s, %s, %s, NOW())
             RETURNING *;
         """
 
         return Database.execute(
             query,
             (
-                assigned_by,
-                company_id,
                 company_member_id,
-                role_id
+                company_member_id,
+                role_id,
+                assigned_by
             )
         )

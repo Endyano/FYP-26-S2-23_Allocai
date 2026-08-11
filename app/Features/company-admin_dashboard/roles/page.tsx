@@ -17,6 +17,7 @@ type Employee = {
   company_member_id: string;
   full_name: string;
   email: string;
+  role: string;
 };
 
 const EMPTY_ROLE_FORM = { role_name: '', role_description: '', permission_ids: [] as string[] };
@@ -40,6 +41,7 @@ export default function RolesPage() {
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState('');
   const [assignSuccess, setAssignSuccess] = useState('');
+  const [confirmingChange, setConfirmingChange] = useState(false);
 
   async function loadAll() {
     setLoading(true);
@@ -133,7 +135,20 @@ export default function RolesPage() {
     setSelectedMemberId('');
     setAssignError('');
     setAssignSuccess('');
+    setConfirmingChange(false);
     setShowAssignModal(true);
+  }
+
+  const selectedMember = employees.find(e => e.company_member_id === selectedMemberId) || null;
+  const targetRoleName = assignRole?.role_name.replace(/_/g, ' ') || '';
+  const hasRoleConflict = !!selectedMember && !!selectedMember.role && selectedMember.role !== assignRole?.role_name;
+
+  function handleAssignClick() {
+    if (hasRoleConflict && !confirmingChange) {
+      setConfirmingChange(true);
+      return;
+    }
+    assignRoleToMember();
   }
 
   async function assignRoleToMember() {
@@ -147,7 +162,9 @@ export default function RolesPage() {
       });
       if (result.success) {
         setAssignSuccess('Role assigned successfully.');
+        setConfirmingChange(false);
         setTimeout(() => { setShowAssignModal(false); setAssignSuccess(''); }, 1500);
+        loadAll();
       } else {
         setAssignError(result.message || 'Failed to assign role.');
       }
@@ -330,22 +347,31 @@ export default function RolesPage() {
             </div>
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Select Employee</label>
-              <select value={selectedMemberId} onChange={e => setSelectedMemberId(e.target.value)}
+              <select value={selectedMemberId} onChange={e => { setSelectedMemberId(e.target.value); setConfirmingChange(false); setAssignError(''); }}
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
               >
                 <option value="">— Select an employee —</option>
                 {employees.map(e => (
-                  <option key={e.company_member_id} value={e.company_member_id}>{e.full_name} ({e.email})</option>
+                  <option key={e.company_member_id} value={e.company_member_id}>
+                    {e.full_name} ({e.email}){e.role ? ` — currently ${e.role.replace(/_/g, ' ')}` : ''}
+                  </option>
                 ))}
               </select>
             </div>
+            {hasRoleConflict && (
+              <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                <span className="font-semibold">{selectedMember?.full_name}</span> is currently <span className="font-semibold capitalize">{selectedMember?.role.replace(/_/g, ' ')}</span>. Assigning <span className="font-semibold capitalize">{targetRoleName}</span> will remove their current role — are you sure?
+              </div>
+            )}
             {assignError && <p className="mt-3 text-sm text-rose-600 font-medium">{assignError}</p>}
             {assignSuccess && <p className="mt-3 text-sm text-emerald-600 font-medium">{assignSuccess}</p>}
             <div className="mt-6 flex gap-3">
-              <button onClick={assignRoleToMember} disabled={assigning || !selectedMemberId}
-                className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 shadow-sm transition-colors disabled:opacity-60"
+              <button onClick={handleAssignClick} disabled={assigning || !selectedMemberId}
+                className={`rounded-xl px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-60 ${
+                  hasRoleConflict && confirmingChange ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
               >
-                {assigning ? 'Assigning...' : 'Assign Role'}
+                {assigning ? 'Assigning...' : hasRoleConflict && confirmingChange ? 'Yes, Change Role' : hasRoleConflict ? 'Continue' : 'Assign Role'}
               </button>
               <button onClick={() => setShowAssignModal(false)}
                 className="rounded-xl bg-white border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
