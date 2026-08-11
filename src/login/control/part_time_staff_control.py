@@ -1,6 +1,7 @@
 from entity.staff_profile_entity import StaffProfileEntity
 from entity.availability_entity import AvailabilityEntity
 from entity.task_allocation_entity import TaskAllocationEntity
+from entity.task_entity import TaskEntity
 from entity.cancellation_request_entity import CancellationRequestEntity
 from entity.work_rule_entity import WorkRuleEntity
 from entity.dispute_request_entity import DisputeRequestEntity
@@ -247,6 +248,11 @@ class PartTimeStaffControl:
                     "been answered."
                 )
             }
+
+        if action == "declined":
+            # Reopen the task so it shows back up as unallocated, not
+            # stuck showing "Allocated" with no staff attached
+            TaskEntity.update_status(company_id, allocation["task_id"], "open")
 
         return {
             "success": True,

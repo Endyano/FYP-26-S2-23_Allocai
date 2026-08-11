@@ -16,6 +16,8 @@ type Task = {
   department_name: string | null;
   assigned_staff_name: string | null;
   required_skillset_id: string | null;
+  declined_by_name: string | null;
+  declined_at: string | null;
 };
 
 type Department = { department_id: string; department_name: string };
@@ -335,7 +337,18 @@ export default function TasksPage() {
                   <td className="px-6 py-4 font-medium text-slate-900 max-w-[180px] truncate">{task.task_title}</td>
                   <td className="px-6 py-4 text-slate-600">{formatDate(task.task_date)}</td>
                   <td className="px-6 py-4 text-slate-600">{formatTime(task.start_time)} – {formatTime(task.end_time)}</td>
-                  <td className="px-6 py-4 text-slate-600">{task.assigned_staff_name || <span className="italic text-slate-400">Unassigned</span>}</td>
+                  <td className="px-6 py-4 text-slate-600">
+                    {task.assigned_staff_name ? (
+                      task.assigned_staff_name
+                    ) : (
+                      <div>
+                        <span className="italic text-slate-400">Unassigned</span>
+                        {task.declined_by_name && (
+                          <div className="text-xs text-rose-600 mt-0.5">Declined by {task.declined_by_name}</div>
+                        )}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${task.priority_level === 'high' ? 'bg-rose-50 text-rose-700' : task.priority_level === 'medium' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
                       {task.priority_level}

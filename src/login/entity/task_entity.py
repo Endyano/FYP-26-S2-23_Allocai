@@ -77,7 +77,9 @@ class TaskEntity:
                 d.department_name,
                 s.skillset_id AS required_skillset_id,
                 s.skillset_name,
-                au.full_name AS assigned_staff_name
+                au.full_name AS assigned_staff_name,
+                decl.declined_by_name,
+                decl.declined_at
             FROM tasks t
             LEFT JOIN departments d ON d.department_id = t.department_id
             LEFT JOIN task_skillsets ts ON ts.task_id = t.task_id
@@ -88,6 +90,17 @@ class TaskEntity:
                 AND ta.allocation_status IN ('pending', 'accepted', 'completed')
             LEFT JOIN company_members acm ON acm.company_member_id = ta.assigned_to
             LEFT JOIN users au ON au.user_id = acm.user_id
+            LEFT JOIN LATERAL (
+                SELECT dau.full_name AS declined_by_name, dta.response_at AS declined_at
+                FROM task_allocations dta
+                JOIN company_members dcm ON dcm.company_member_id = dta.assigned_to
+                JOIN users dau ON dau.user_id = dcm.user_id
+                WHERE dta.task_id = t.task_id
+                AND dta.company_id = t.company_id
+                AND dta.allocation_status = 'declined'
+                ORDER BY dta.response_at DESC
+                LIMIT 1
+            ) decl ON true
             WHERE t.company_id = %s
         """
 
