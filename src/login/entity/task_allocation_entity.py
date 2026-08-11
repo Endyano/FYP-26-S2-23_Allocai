@@ -4,6 +4,24 @@ from db import Database
 class TaskAllocationEntity:
 
     @staticmethod
+    def get_for_member(company_id, company_member_id, allocation_id):
+        query = """
+            SELECT
+                ta.allocation_id,
+                ta.allocation_status,
+                t.task_id,
+                t.task_date,
+                t.start_time,
+                t.end_time
+            FROM task_allocations ta
+            JOIN tasks t ON t.task_id = ta.task_id AND t.company_id = ta.company_id
+            WHERE ta.company_id = %s
+            AND ta.assigned_to = %s
+            AND ta.allocation_id = %s;
+        """
+        return Database.fetch_one(query, (company_id, company_member_id, allocation_id))
+
+    @staticmethod
     def create(company_id, task_id, assigned_to, assigned_by):
         query = """
             INSERT INTO task_allocations (
@@ -290,6 +308,16 @@ class TaskAllocationEntity:
                 AND assigned_to = %s
                 AND allocation_id = %s
                 AND allocation_status = 'accepted'
+                AND EXISTS (
+                    SELECT 1
+                    FROM tasks t
+                    WHERE t.task_id = task_allocations.task_id
+                    AND t.company_id = task_allocations.company_id
+                    AND (
+                        t.task_date < CURRENT_DATE
+                        OR (t.task_date = CURRENT_DATE AND t.end_time <= CURRENT_TIME)
+                    )
+                )
                 RETURNING *
             ),
             completed_task AS (

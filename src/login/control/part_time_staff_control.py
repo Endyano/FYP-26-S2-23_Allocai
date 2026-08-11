@@ -2,6 +2,7 @@ from entity.staff_profile_entity import StaffProfileEntity
 from entity.availability_entity import AvailabilityEntity
 from entity.task_allocation_entity import TaskAllocationEntity
 from entity.task_entity import TaskEntity
+from datetime import datetime
 from entity.cancellation_request_entity import CancellationRequestEntity
 from entity.work_rule_entity import WorkRuleEntity
 from entity.dispute_request_entity import DisputeRequestEntity
@@ -302,6 +303,23 @@ class PartTimeStaffControl:
         company_member_id,
         allocation_id
     ):
+        info = TaskAllocationEntity.get_for_member(
+            company_id=company_id,
+            company_member_id=company_member_id,
+            allocation_id=allocation_id
+        )
+
+        if info and info["allocation_status"] == "accepted":
+            task_end = datetime.combine(info["task_date"], info["end_time"])
+            if task_end > datetime.now():
+                return {
+                    "success": False,
+                    "message": (
+                        "This task cannot be marked as completed until "
+                        "its scheduled time has passed."
+                    )
+                }
+
         # Mark the accepted allocation as completed
         allocation = TaskAllocationEntity.complete_allocation(
             company_id=company_id,
