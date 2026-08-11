@@ -5,6 +5,7 @@ from entity.company_entity import CompanyEntity
 from entity.faq_entity import FaqEntity
 from entity.review_entity import ReviewEntity
 from entity.subscription_entity import SubscriptionEntity
+from entity.user_entity import UserEntity
 
 
 class PlatformAdminControl:
@@ -126,7 +127,9 @@ class PlatformAdminControl:
             "analytics": {
                 "companies": CompanyEntity.get_company_status_summary(),
                 "subscriptions": SubscriptionEntity.get_subscription_summary(),
-                "reviews": ReviewEntity.get_review_status_summary()
+                "reviews": ReviewEntity.get_review_status_summary(),
+                "user_growth": UserEntity.get_monthly_growth(),
+                "revenue": SubscriptionEntity.get_monthly_revenue()
             }
         }
 

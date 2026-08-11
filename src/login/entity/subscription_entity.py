@@ -122,6 +122,31 @@ class SubscriptionEntity:
         ))
 
     @staticmethod
+    def get_monthly_revenue():
+        query = """
+            WITH months AS (
+                SELECT generate_series(
+                    date_trunc('month', CURRENT_DATE) - interval '5 months',
+                    date_trunc('month', CURRENT_DATE),
+                    interval '1 month'
+                )::date AS month_start
+            )
+            SELECT
+                to_char(m.month_start, 'Mon YYYY') AS month_label,
+                COALESCE((
+                    SELECT SUM(sp.plan_price)
+                    FROM company_subscriptions cs
+                    JOIN subscription_plans sp
+                        ON sp.subscription_plan_id = cs.subscription_plan_id
+                    WHERE cs.created_at < (m.month_start + interval '1 month')
+                    AND cs.subscription_status = 'active'
+                ), 0) AS revenue
+            FROM months m
+            ORDER BY m.month_start ASC;
+        """
+        return Database.fetch_all(query)
+
+    @staticmethod
     def get_subscription_summary():
         query = """
             SELECT

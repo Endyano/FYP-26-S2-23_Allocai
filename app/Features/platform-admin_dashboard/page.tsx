@@ -68,6 +68,8 @@ type Analytics = {
   companies: { company_status: string; total: number }[];
   subscriptions: { subscription_status: string; payment_status: string; total: number }[];
   reviews: { review_status: string; total: number }[];
+  user_growth: { month_label: string; total_users: number }[];
+  revenue: { month_label: string; revenue: number }[];
 };
 
 function formatDateTime(d: string) {
@@ -109,6 +111,111 @@ function formatFeatureGates(gates: Record<string, unknown> | null | undefined): 
   }
 
   return pills;
+}
+
+function TrendLineChart({
+  title,
+  points,
+  color,
+  formatValue,
+}: {
+  title: string;
+  points: { label: string; value: number }[];
+  color: string;
+  formatValue: (v: number) => string;
+}) {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  const width = 420;
+  const height = 200;
+  const padding = { top: 16, right: 16, bottom: 28, left: 16 };
+  const innerW = width - padding.left - padding.right;
+  const innerH = height - padding.top - padding.bottom;
+
+  const maxValue = Math.max(1, ...points.map(p => p.value));
+  const stepX = points.length > 1 ? innerW / (points.length - 1) : 0;
+
+  const coords = points.map((p, i) => ({
+    x: padding.left + i * stepX,
+    y: padding.top + innerH - (p.value / maxValue) * innerH,
+    ...p,
+  }));
+
+  const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
+  const areaPath = `${linePath} L ${coords[coords.length - 1]?.x ?? 0} ${padding.top + innerH} L ${coords[0]?.x ?? 0} ${padding.top + innerH} Z`;
+  const hovered = hoverIndex !== null ? coords[hoverIndex] : null;
+
+  return (
+    <div className="rounded-3xl bg-white border border-slate-100 shadow-sm p-6">
+      <h3 className="text-sm font-bold text-slate-700 mb-1">{title}</h3>
+      {points.every(p => p.value === 0) && (
+        <p className="text-xs text-slate-400 mb-2">No activity yet in this range.</p>
+      )}
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full h-auto"
+        onMouseLeave={() => setHoverIndex(null)}
+      >
+        {/* gridlines */}
+        {[0, 0.5, 1].map(frac => (
+          <line
+            key={frac}
+            x1={padding.left}
+            x2={width - padding.right}
+            y1={padding.top + innerH * (1 - frac)}
+            y2={padding.top + innerH * (1 - frac)}
+            stroke="#e1e0d9"
+            strokeWidth={1}
+          />
+        ))}
+
+        {/* area fill */}
+        <path d={areaPath} fill={color} fillOpacity={0.08} stroke="none" />
+
+        {/* line */}
+        <path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+
+        {/* rounded data-end anchor on the last point */}
+        {coords.length > 0 && (
+          <circle cx={coords[coords.length - 1].x} cy={coords[coords.length - 1].y} r={4} fill={color} />
+        )}
+
+        {/* crosshair + hover dot */}
+        {hovered && (
+          <>
+            <line x1={hovered.x} x2={hovered.x} y1={padding.top} y2={padding.top + innerH} stroke="#c3c2b7" strokeWidth={1} strokeDasharray="3,3" />
+            <circle cx={hovered.x} cy={hovered.y} r={4} fill="#fcfcfb" stroke={color} strokeWidth={2} />
+          </>
+        )}
+
+        {/* month labels */}
+        {coords.map((c, i) => (
+          <text key={i} x={c.x} y={height - 8} textAnchor="middle" fontSize={10} fill="#898781">
+            {c.label.split(' ')[0]}
+          </text>
+        ))}
+
+        {/* invisible hit targets */}
+        {coords.map((c, i) => (
+          <rect
+            key={i}
+            x={c.x - stepX / 2}
+            y={0}
+            width={Math.max(stepX, 8)}
+            height={height}
+            fill="transparent"
+            onMouseEnter={() => setHoverIndex(i)}
+          />
+        ))}
+      </svg>
+
+      {hovered && (
+        <div className="text-xs text-slate-600 font-semibold">
+          {hovered.label}: <span className="text-slate-900">{formatValue(hovered.value)}</span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function PlatformAdminDashboard() {
@@ -517,6 +624,23 @@ export default function PlatformAdminDashboard() {
                 </svg>
               </div>
             </div>
+
+            {analytics && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <TrendLineChart
+                  title="User Growth"
+                  points={analytics.user_growth.map(g => ({ label: g.month_label, value: g.total_users }))}
+                  color="#2a78d6"
+                  formatValue={v => `${v} user${v === 1 ? '' : 's'}`}
+                />
+                <TrendLineChart
+                  title="Revenue"
+                  points={analytics.revenue.map(r => ({ label: r.month_label, value: Number(r.revenue) }))}
+                  color="#1baf7a"
+                  formatValue={v => `$${v.toFixed(2)}/mo`}
+                />
+              </div>
+            )}
 
             {analytics && (
               <div className="rounded-3xl bg-white border border-slate-100 shadow-sm p-6">
