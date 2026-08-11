@@ -234,6 +234,7 @@ export default function PlatformAdminDashboard() {
   const [error, setError] = useState('');
 
   const [editPlanModal, setEditPlanModal] = useState<Plan | null>(null);
+  const [planNameInput, setPlanNameInput] = useState('');
   const [staffCapInput, setStaffCapInput] = useState('');
   const [featureGateInput, setFeatureGateInput] = useState('');
   const [planFormError, setPlanFormError] = useState('');
@@ -370,6 +371,7 @@ export default function PlatformAdminDashboard() {
 
   function openEditPlan(plan: Plan) {
     setEditPlanModal(plan);
+    setPlanNameInput(plan.plan_name ?? '');
     setStaffCapInput(String(plan.staff_cap ?? ''));
     setFeatureGateInput(JSON.stringify(plan.feature_gate ?? {}, null, 2));
     setPlanFormError('');
@@ -384,6 +386,10 @@ export default function PlatformAdminDashboard() {
       setPlanFormError('Feature gates must be valid JSON.');
       return;
     }
+    if (!planNameInput.trim()) {
+      setPlanFormError('Plan name is required.');
+      return;
+    }
     const staffCapNumber = Number(staffCapInput);
     if (!staffCapInput || Number.isNaN(staffCapNumber) || staffCapNumber <= 0) {
       setPlanFormError('Staff cap must be a positive number.');
@@ -392,7 +398,7 @@ export default function PlatformAdminDashboard() {
     setProcessing(true); setPlanFormError('');
     const result = await apiFetch<{ success: boolean; message?: string }>(
       `/api/platform-admin/subscription-plans/${editPlanModal.subscription_plan_id}`,
-      { method: 'PUT', body: JSON.stringify({ staff_cap: staffCapNumber, feature_gate: parsedFeatureGate }) }
+      { method: 'PUT', body: JSON.stringify({ plan_name: planNameInput.trim(), staff_cap: staffCapNumber, feature_gate: parsedFeatureGate }) }
     );
     if (result.success) {
       setEditPlanModal(null);
@@ -1009,6 +1015,10 @@ export default function PlatformAdminDashboard() {
           <div className="bg-white px-8 py-8 rounded-3xl shadow-2xl w-full max-w-md">
             <h3 className="text-xl font-bold text-slate-900 mb-6">Edit {editPlanModal.plan_name} Plan</h3>
             <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Plan Name</label>
+                <input type="text" value={planNameInput} onChange={(e) => setPlanNameInput(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-100" />
+              </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Set Staff Cap</label>
                 <input type="number" min="1" value={staffCapInput} onChange={(e) => setStaffCapInput(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-100" />

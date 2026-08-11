@@ -94,6 +94,19 @@ class SubscriptionEntity:
         ))
 
     @staticmethod
+    def name_in_use_by_other_plan(subscription_plan_id, plan_name):
+        return Database.fetch_one(
+            """
+            SELECT subscription_plan_id
+            FROM subscription_plans
+            WHERE LOWER(plan_name) = LOWER(%s)
+            AND subscription_plan_id != %s
+            LIMIT 1;
+            """,
+            (plan_name, subscription_plan_id)
+        ) is not None
+
+    @staticmethod
     def update_plan(subscription_plan_id, data):
         query = """
             UPDATE subscription_plans

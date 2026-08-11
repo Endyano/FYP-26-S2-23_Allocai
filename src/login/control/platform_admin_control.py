@@ -93,6 +93,14 @@ class PlatformAdminControl:
 
     @staticmethod
     def update_subscription_plan(subscription_plan_id, data):
+        plan_name = data.get("plan_name")
+
+        if plan_name and SubscriptionEntity.name_in_use_by_other_plan(subscription_plan_id, plan_name):
+            return {
+                "success": False,
+                "message": "Another plan already uses that name."
+            }
+
         plan = SubscriptionEntity.update_plan(subscription_plan_id, data)
 
         if not plan:
