@@ -110,9 +110,19 @@ class CompanyEntity:
                 c.created_at,
                 c.updated_at,
                 u.full_name AS created_by_name,
-                u.email AS created_by_email
+                u.email AS created_by_email,
+                sp.plan_name,
+                cs.subscription_status
             FROM companies c
             LEFT JOIN users u ON u.user_id = c.created_by
+            LEFT JOIN LATERAL (
+                SELECT sub.subscription_plan_id, sub.subscription_status
+                FROM company_subscriptions sub
+                WHERE sub.company_id = c.company_id
+                ORDER BY sub.created_at DESC
+                LIMIT 1
+            ) cs ON true
+            LEFT JOIN subscription_plans sp ON sp.subscription_plan_id = cs.subscription_plan_id
             ORDER BY c.created_at DESC;
         """
         return Database.fetch_all(query)

@@ -23,6 +23,8 @@ type Company = {
   created_by_name: string | null;
   created_by_email: string | null;
   created_at: string;
+  plan_name: string | null;
+  subscription_status: string | null;
 };
 
 type Plan = {
@@ -690,21 +692,34 @@ export default function PlatformAdminDashboard() {
                     <tr>
                       <th className="px-6 py-4 font-semibold">Company Name</th>
                       <th className="px-6 py-4 font-semibold">Created By</th>
+                      <th className="px-6 py-4 font-semibold">Plan</th>
                       <th className="px-6 py-4 font-semibold">Status</th>
                       <th className="px-6 py-4 font-semibold text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 bg-white">
                     {loading ? (
-                      <tr><td colSpan={4} className="px-6 py-10 text-center text-slate-400 animate-pulse">Loading companies...</td></tr>
+                      <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400 animate-pulse">Loading companies...</td></tr>
                     ) : companies.length === 0 ? (
-                      <tr><td colSpan={4} className="px-6 py-10 text-center text-slate-500">No companies registered yet.</td></tr>
+                      <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-500">No companies registered yet.</td></tr>
                     ) : companies.map(comp => (
                       <tr key={comp.company_id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 font-bold text-slate-900">{comp.company_name}</td>
                         <td className="px-6 py-4 text-slate-600">
                           {comp.created_by_name || '—'}
                           {comp.created_by_email && <p className="text-xs text-slate-400">{comp.created_by_email}</p>}
+                        </td>
+                        <td className="px-6 py-4 text-slate-600">
+                          {comp.plan_name ? (
+                            <>
+                              {comp.plan_name}
+                              {comp.subscription_status && comp.subscription_status !== 'active' && (
+                                <p className="text-xs text-amber-600 capitalize">{comp.subscription_status.replace('_', ' ')}</p>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-slate-400 italic">No plan</span>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${STATUS_STYLES[comp.company_status]}`}>
