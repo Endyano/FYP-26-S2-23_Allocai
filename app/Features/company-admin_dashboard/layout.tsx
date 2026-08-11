@@ -50,6 +50,13 @@ const NAV = [
     ),
   },
   {
+    href: '/Features/company-admin_dashboard/hour-limits',
+    label: 'Hour Limit Approvals',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v4"/><path d="m6.41 6.41 2.83 2.83"/><path d="M2 12h4"/><path d="m6.41 17.59 2.83-2.83"/><path d="M12 18v4"/><path d="m17.59 17.59-2.83-2.83"/><path d="M22 12h-4"/><path d="m17.59 6.41-2.83 2.83"/></svg>
+    ),
+  },
+  {
     href: '/Features/company-admin_dashboard/audit',
     label: 'Audit Log',
     icon: (
