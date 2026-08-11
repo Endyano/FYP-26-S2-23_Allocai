@@ -413,12 +413,15 @@ class RoleEntity:
         if not valid:
             return None
 
-        # Replace any existing role(s) with the new one in a single
-        # transaction, so the member is never left with zero roles.
+        # Replace any other role(s) with the new one in a single transaction,
+        # so the member is never left with zero roles. The target role is
+        # excluded from the delete and upserted instead, so re-assigning the
+        # same role a member already has doesn't collide with itself.
         query = """
             WITH removed AS (
                 DELETE FROM member_roles
                 WHERE company_member_id = %s
+                AND role_id != %s
             )
             INSERT INTO member_roles (
                 company_member_id,
@@ -427,6 +430,9 @@ class RoleEntity:
                 assigned_at
             )
             VALUES (%s, %s, %s, NOW())
+            ON CONFLICT (company_member_id, role_id) DO UPDATE
+            SET assigned_by = EXCLUDED.assigned_by,
+                assigned_at = NOW()
             RETURNING *;
         """
 
@@ -434,6 +440,7 @@ class RoleEntity:
             query,
             (
                 company_member_id,
+                role_id,
                 company_member_id,
                 role_id,
                 assigned_by
