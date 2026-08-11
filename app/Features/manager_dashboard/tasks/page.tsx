@@ -83,6 +83,7 @@ export default function TasksPage() {
 
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState('');
 
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [draftDescription, setDraftDescription] = useState('');
@@ -305,11 +306,20 @@ export default function TasksPage() {
 
   async function cancelTask(id: string) {
     setActingId(id);
+    setCancelError('');
     try {
       const result = await apiFetch(`/api/manager/tasks/${id}/cancel`, { method: 'PATCH' });
-      if (result.success) await loadAll();
-    } catch {}
-    finally { setActingId(null); setConfirmCancelId(null); }
+      if (result.success) {
+        setConfirmCancelId(null);
+        await loadAll();
+      } else {
+        setCancelError(result.message || 'Failed to cancel task.');
+      }
+    } catch {
+      setCancelError('Could not reach the server.');
+    } finally {
+      setActingId(null);
+    }
   }
 
   const statuses = ['All', 'open', 'pending', 'allocated', 'completed', 'cancelled'];
@@ -419,7 +429,7 @@ export default function TasksPage() {
                         >Edit</button>
                       )}
                       {task.task_status !== 'cancelled' && task.task_status !== 'completed' && (
-                        <button onClick={() => setConfirmCancelId(task.task_id)}
+                        <button onClick={() => { setConfirmCancelId(task.task_id); setCancelError(''); }}
                           className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-50 hover:border-amber-200 shadow-sm transition-all"
                         >Cancel</button>
                       )}
@@ -685,12 +695,13 @@ export default function TasksPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white px-10 py-10 rounded-3xl shadow-2xl w-full max-w-sm">
             <h3 className="text-xl font-bold text-slate-900 mb-2 text-center">Cancel Task?</h3>
-            <p className="text-center text-sm text-slate-500 mb-8">This will mark the task as cancelled.</p>
+            <p className="text-center text-sm text-slate-500 mb-4">This will mark the task as cancelled.</p>
+            {cancelError && <p className="text-center text-sm text-rose-600 font-medium mb-4">{cancelError}</p>}
             <div className="flex flex-col gap-3">
               <button onClick={() => cancelTask(confirmCancelId)} disabled={actingId === confirmCancelId}
                 className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
               >{actingId === confirmCancelId ? 'Cancelling...' : 'Yes, cancel task'}</button>
-              <button onClick={() => setConfirmCancelId(null)} className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold py-3 rounded-xl transition-colors">Back</button>
+              <button onClick={() => { setConfirmCancelId(null); setCancelError(''); }} className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold py-3 rounded-xl transition-colors">Back</button>
             </div>
           </div>
         </div>
