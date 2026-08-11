@@ -135,10 +135,16 @@ class WorkRuleEntity:
 
     @staticmethod
     def get_pending_by_company(company_id):
+        # Includes pending proposals plus recently-decided ones (approved/
+        # rejected), so a decision stays visible in the approvals table
+        # instead of disappearing the moment it's actioned. A staff
+        # member's decided proposal is replaced the next time a new one
+        # is submitted for them (see propose()'s ON CONFLICT clause).
         query = """
             SELECT
                 swr.staff_work_rule_id,
                 swr.company_member_id,
+                swr.proposal_status,
                 CASE WHEN swr.rule_status = 'Active' THEN swr.max_working_hours ELSE NULL END AS current_max_working_hours,
                 CASE WHEN swr.rule_status = 'Active' THEN swr.rule_period ELSE NULL END AS current_rule_period,
                 swr.proposed_max_working_hours,
@@ -147,7 +153,8 @@ class WorkRuleEntity:
                 swr.updated_at,
                 u.full_name AS staff_name,
                 sp.employee_type,
-                mu.full_name AS requested_by_name
+                mu.full_name AS requested_by_name,
+                ru.full_name AS reviewed_by_name
             FROM staff_work_rules swr
             JOIN company_members cm ON cm.company_member_id = swr.company_member_id
             JOIN users u ON u.user_id = cm.user_id
@@ -156,14 +163,22 @@ class WorkRuleEntity:
                 AND sp.company_id = swr.company_id
             LEFT JOIN company_members rcm ON rcm.company_member_id = swr.requested_by
             LEFT JOIN users mu ON mu.user_id = rcm.user_id
+            LEFT JOIN company_members rvcm ON rvcm.company_member_id = swr.reviewed_by
+            LEFT JOIN users ru ON ru.user_id = rvcm.user_id
             WHERE swr.company_id = %s
-            AND swr.proposal_status = 'pending'
-            ORDER BY swr.updated_at ASC;
+            AND swr.proposal_status IN ('pending', 'approved', 'rejected')
+            ORDER BY
+                CASE WHEN swr.proposal_status = 'pending' THEN 0 ELSE 1 END,
+                swr.updated_at DESC;
         """
         return Database.fetch_all(query, (company_id,))
 
     @staticmethod
     def approve(company_id, staff_work_rule_id, reviewed_by):
+        # Keep the proposed_* values and mark the proposal 'approved'
+        # (instead of clearing it to NULL) so the decision stays visible
+        # in the approvals table until a new proposal is made for this
+        # staff member.
         query = """
             UPDATE staff_work_rules
             SET max_working_hours = proposed_max_working_hours,
@@ -174,10 +189,7 @@ class WorkRuleEntity:
                 reviewed_by = %s,
                 reviewed_at = now(),
                 updated_at = now(),
-                proposed_max_working_hours = NULL,
-                proposed_rule_period = NULL,
-                proposed_notes = NULL,
-                proposal_status = NULL
+                proposal_status = 'approved'
             WHERE company_id = %s AND staff_work_rule_id = %s AND proposal_status = 'pending'
             RETURNING *;
         """
@@ -185,12 +197,13 @@ class WorkRuleEntity:
 
     @staticmethod
     def reject(company_id, staff_work_rule_id, reviewed_by):
+        # Keep the proposed_* values and mark the proposal 'rejected'
+        # (instead of clearing it to NULL) so the decision stays visible
+        # in the approvals table until a new proposal is made for this
+        # staff member.
         query = """
             UPDATE staff_work_rules
-            SET proposed_max_working_hours = NULL,
-                proposed_rule_period = NULL,
-                proposed_notes = NULL,
-                proposal_status = NULL,
+            SET proposal_status = 'rejected',
                 reviewed_by = %s,
                 reviewed_at = now(),
                 updated_at = now()

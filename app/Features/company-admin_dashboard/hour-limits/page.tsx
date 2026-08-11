@@ -6,6 +6,7 @@ import { apiFetch } from '@/lib/api';
 type PendingWorkRule = {
   staff_work_rule_id: string;
   company_member_id: string;
+  proposal_status: 'pending' | 'approved' | 'rejected';
   current_max_working_hours: number | null;
   current_rule_period: string | null;
   proposed_max_working_hours: number;
@@ -15,6 +16,19 @@ type PendingWorkRule = {
   staff_name: string;
   employee_type: 'full_time' | 'part_time' | null;
   requested_by_name: string | null;
+  reviewed_by_name: string | null;
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  pending: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
+  approved: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
+  rejected: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending',
+  approved: 'Approved',
+  rejected: 'Rejected',
 };
 
 function formatDate(d: string) {
@@ -43,7 +57,7 @@ export default function HourLimitApprovalsPage() {
     setError('');
     const result = await apiFetch<{ pending_work_rules?: PendingWorkRule[] }>('/api/company-admin/work-rules/pending');
     if (result.success) setRules(result.pending_work_rules || []);
-    else setError(result.message || 'Could not load pending hour-limit proposals.');
+    else setError(result.message || 'Could not load hour-limit proposals.');
     setLoading(false);
   }
 
@@ -103,15 +117,16 @@ export default function HourLimitApprovalsPage() {
                 <th className="px-6 py-4 font-semibold">Proposed Limit</th>
                 <th className="px-6 py-4 font-semibold">Notes</th>
                 <th className="px-6 py-4 font-semibold">Requested By</th>
-                <th className="px-6 py-4 font-semibold">Requested</th>
+                <th className="px-6 py-4 font-semibold">Updated</th>
+                <th className="px-6 py-4 font-semibold">Status</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
               {loading ? (
-                <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 animate-pulse">Loading...</td></tr>
+                <tr><td colSpan={8} className="px-6 py-12 text-center text-slate-400 animate-pulse">Loading...</td></tr>
               ) : rules.length === 0 ? (
-                <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-500">No pending hour-limit proposals.</td></tr>
+                <tr><td colSpan={8} className="px-6 py-12 text-center text-slate-500">No hour-limit proposals yet.</td></tr>
               ) : rules.map(rule => (
                 <tr key={rule.staff_work_rule_id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 font-medium text-slate-900">
@@ -133,15 +148,27 @@ export default function HourLimitApprovalsPage() {
                   </td>
                   <td className="px-6 py-4 text-slate-600">{rule.requested_by_name || '—'}</td>
                   <td className="px-6 py-4 text-slate-500">{formatDate(rule.updated_at)}</td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[rule.proposal_status]}`}>
+                      {STATUS_LABELS[rule.proposal_status]}
+                    </span>
+                    {rule.proposal_status !== 'pending' && rule.reviewed_by_name && (
+                      <p className="text-xs text-slate-400 mt-1">by {rule.reviewed_by_name}</p>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => approve(rule.staff_work_rule_id)} disabled={actingId === rule.staff_work_rule_id}
-                        className="rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-all disabled:opacity-60"
-                      >{actingId === rule.staff_work_rule_id ? 'Working...' : 'Approve'}</button>
-                      <button onClick={() => { setConfirmReject(rule); setActionError(''); }} disabled={actingId === rule.staff_work_rule_id}
-                        className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-200 shadow-sm transition-all disabled:opacity-60"
-                      >Reject</button>
-                    </div>
+                    {rule.proposal_status === 'pending' ? (
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => approve(rule.staff_work_rule_id)} disabled={actingId === rule.staff_work_rule_id}
+                          className="rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-all disabled:opacity-60"
+                        >{actingId === rule.staff_work_rule_id ? 'Working...' : 'Approve'}</button>
+                        <button onClick={() => { setConfirmReject(rule); setActionError(''); }} disabled={actingId === rule.staff_work_rule_id}
+                          className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-200 shadow-sm transition-all disabled:opacity-60"
+                        >Reject</button>
+                      </div>
+                    ) : (
+                      <span className="text-slate-300 text-xs">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
