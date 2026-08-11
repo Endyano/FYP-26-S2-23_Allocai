@@ -321,19 +321,21 @@ class ManagerControl:
                 "message": "Staff profile is not active."
             }
 
-        if staff.get("employee_type") == "part_time":
-            rule = WorkRuleEntity.get_by_member(company_id, company_member_id)
-            task_hours = TaskEntity.calculate_task_hours(
-                task["start_time"],
-                task["end_time"]
-            )
+        # Hour limits apply to any staff member with an active work
+        # rule, not just part-time staff -- a full-time staff member can
+        # have one too (see the Hours Dashboard/Hour Limit Approvals).
+        rule = WorkRuleEntity.get_by_member(company_id, company_member_id)
+        task_hours = TaskEntity.calculate_task_hours(
+            task["start_time"],
+            task["end_time"]
+        )
 
-            if rule and rule.get("remaining_eligible_hours") is not None:
-                if float(rule["remaining_eligible_hours"]) < task_hours:
-                    return {
-                        "eligible": False,
-                        "message": "Staff member does not have enough remaining eligible hours."
-                    }
+        if rule and rule.get("remaining_eligible_hours") is not None:
+            if float(rule["remaining_eligible_hours"]) < task_hours:
+                return {
+                    "eligible": False,
+                    "message": "Staff member does not have enough remaining eligible hours."
+                }
 
         if task.get("required_skillset_id"):
             has_skill = SkillsetEntity.staff_has_skillset(
