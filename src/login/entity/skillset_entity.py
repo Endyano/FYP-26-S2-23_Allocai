@@ -146,16 +146,16 @@ class SkillsetEntity:
         query = """
             UPDATE skillsets
             SET
-                skillset_status = 'Deleted',
-                updated_at = NOW()
+                skillset_status = 'Deleted'
             WHERE company_id = %s
             AND skillset_id = %s
             AND skillset_status != 'Deleted'
             AND NOT EXISTS (
                 SELECT 1
-                FROM tasks
+                FROM task_skillsets
+                JOIN tasks ON tasks.task_id = task_skillsets.task_id
                 WHERE tasks.company_id = skillsets.company_id
-                AND tasks.required_skillset_id = skillsets.skillset_id
+                AND task_skillsets.skillset_id = skillsets.skillset_id
                 AND tasks.task_status NOT IN (
                     'completed',
                     'cancelled'
