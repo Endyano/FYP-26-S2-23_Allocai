@@ -6,6 +6,7 @@ from entity.cancellation_request_entity import CancellationRequestEntity
 from entity.work_rule_entity import WorkRuleEntity
 from entity.dispute_request_entity import DisputeRequestEntity
 from entity.working_hour_entity import WorkingHourEntity
+from validators import is_valid_phone
 
 
 class PartTimeStaffControl:
@@ -54,6 +55,13 @@ class PartTimeStaffControl:
                 "success": False,
                 "message": "Full name cannot be empty."
             }
+
+        for field in ("phone_number", "contact_number"):
+            if data.get(field) and not is_valid_phone(data[field]):
+                return {
+                    "success": False,
+                    "message": "Please enter a valid phone number."
+                }
 
         # Update the profile through the Entity
         profile = StaffProfileEntity.update_my_profile(

@@ -5,6 +5,7 @@ from entity.task_allocation_entity import TaskAllocationEntity
 from entity.task_entity import TaskEntity
 from entity.work_rule_entity import WorkRuleEntity
 from entity.working_hour_entity import WorkingHourEntity
+from validators import is_valid_phone
 
 class FullTimeStaffControl:
 
@@ -51,6 +52,13 @@ class FullTimeStaffControl:
                 "success": False,
                 "message": "Full name cannot be empty."
             }
+
+        for field in ("phone_number", "contact_number"):
+            if data.get(field) and not is_valid_phone(data[field]):
+                return {
+                    "success": False,
+                    "message": "Please enter a valid phone number."
+                }
 
         # Ask the Entity to update the database
         profile = StaffProfileEntity.update_my_profile(

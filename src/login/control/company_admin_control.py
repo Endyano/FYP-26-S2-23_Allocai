@@ -10,6 +10,7 @@ from entity.skillset_entity import SkillsetEntity
 from entity.role_entity import RoleEntity
 from entity.work_rule_entity import WorkRuleEntity
 from mailer import send_invitation_email
+from validators import is_valid_email, is_valid_phone
 
 class CompanyAdminControl:
 
@@ -62,6 +63,18 @@ class CompanyAdminControl:
                     "success": False,
                     "message": "Company name cannot be empty."
                 }
+
+        if data.get("company_email") and not is_valid_email(data["company_email"]):
+            return {
+                "success": False,
+                "message": "Please enter a valid email address."
+            }
+
+        if data.get("company_phone") and not is_valid_phone(data["company_phone"]):
+            return {
+                "success": False,
+                "message": "Please enter a valid phone number."
+            }
 
         # Update the company through the Entity
         company = CompanyEntity.update(
