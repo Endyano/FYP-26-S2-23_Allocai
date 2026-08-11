@@ -111,9 +111,35 @@ class PartTimeStaffControl:
                 )
             }
 
-        # End time must be later than start time
-        if data.get("start_time") and data.get("end_time"):
-            if data["start_time"] >= data["end_time"]:
+        # End time must be later than start time. A partial edit only
+        # sends one of the two, so resolve the effective pair against the
+        # existing row before validating -- otherwise an edit that only
+        # changes start_time (or only end_time) can push it past the
+        # other one without ever being checked.
+        if "start_time" in fields_to_update or "end_time" in fields_to_update:
+            existing = AvailabilityEntity.get_by_id(
+                company_id=company_id,
+                company_member_id=company_member_id,
+                availability_id=availability_id
+            )
+
+            if not existing:
+                return {
+                    "success": False,
+                    "message": "Availability schedule was not found."
+                }
+
+            def _to_hhmm(value):
+                # Normalize both str inputs ("HH:MM") and datetime.time
+                # values from the DB ("HH:MM:SS") to the same "HH:MM"
+                # shape so lexicographic comparison is accurate.
+                text = str(value)
+                return text[:5]
+
+            effective_start = _to_hhmm(data.get("start_time") or existing["start_time"])
+            effective_end = _to_hhmm(data.get("end_time") or existing["end_time"])
+
+            if effective_start >= effective_end:
                 return {
                     "success": False,
                     "message": "End time must be later than start time."

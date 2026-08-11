@@ -76,6 +76,17 @@ class AvailabilityEntity:
         )
 
     @staticmethod
+    def get_by_id(company_id, company_member_id, availability_id):
+        query = """
+            SELECT *
+            FROM availability_schedules
+            WHERE company_id = %s
+            AND company_member_id = %s
+            AND availability_id = %s;
+        """
+        return Database.fetch_one(query, (company_id, company_member_id, availability_id))
+
+    @staticmethod
     def get_by_member(company_id, company_member_id):
         query = """
             SELECT *
