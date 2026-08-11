@@ -41,7 +41,7 @@ def view_staff():
 @manager_bp.route("/staff/<company_member_id>/work-rule/propose", methods=["POST"])
 @login_required("manager")
 def propose_work_rule(company_member_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = ManagerControl.propose_work_rule(
         company_id=current_company_id(),
@@ -58,7 +58,7 @@ def propose_work_rule(company_member_id):
 @manager_bp.route("/staff/<company_member_id>/work-rule/override", methods=["POST"])
 @login_required("manager")
 def override_work_rule(company_member_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = ManagerControl.override_work_rule(
         company_id=current_company_id(),
@@ -75,7 +75,7 @@ def override_work_rule(company_member_id):
 @manager_bp.route("/staff/<company_member_id>/skillsets", methods=["POST"])
 @login_required("manager")
 def assign_skillset(company_member_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = ManagerControl.assign_skillset(
         company_id=current_company_id(),
@@ -90,7 +90,7 @@ def assign_skillset(company_member_id):
 @manager_bp.route("/tasks", methods=["POST"])
 @login_required("manager")
 def create_task():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = ManagerControl.create_task(
         company_id=current_company_id(),
@@ -104,7 +104,7 @@ def create_task():
 @manager_bp.route("/tasks/draft", methods=["POST"])
 @login_required("manager")
 def draft_task():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = AITaskControl.draft_task(
         company_id=current_company_id(),
@@ -126,7 +126,7 @@ def view_tasks():
 @manager_bp.route("/tasks/<task_id>", methods=["PUT"])
 @login_required("manager")
 def update_task(task_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     result = ManagerControl.update_task(current_company_id(), task_id, data)
     return jsonify(result), 200 if result["success"] else 400
 
@@ -134,7 +134,7 @@ def update_task(task_id):
 @manager_bp.route("/tasks/<task_id>/cancel", methods=["PATCH"])
 @login_required("manager")
 def cancel_task(task_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = ManagerControl.cancel_task(
         company_id=current_company_id(),
@@ -148,7 +148,7 @@ def cancel_task(task_id):
 @manager_bp.route("/tasks/<task_id>/assign", methods=["POST", "PATCH"])
 @login_required("manager")
 def assign_task(task_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = ManagerControl.assign_task(
         company_id=current_company_id(),
@@ -168,7 +168,7 @@ def allocation_status():
 @manager_bp.route("/staff-skillsets/<staff_skillset_id>", methods=["PUT"])
 @login_required("manager")
 def update_staff_skillset(staff_skillset_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = ManagerControl.update_staff_skillset(
         company_id=current_company_id(),
@@ -208,7 +208,7 @@ def disputes():
 @manager_bp.route("/disputes/<dispute_request_id>/resolve", methods=["PATCH"])
 @login_required("manager")
 def resolve_dispute(dispute_request_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = ManagerControl.resolve_dispute(
         company_id=current_company_id(),
@@ -241,7 +241,7 @@ def cancellation_requests():
 @manager_bp.route("/cancellation-requests/<cancellation_request_id>/resolve", methods=["PATCH"])
 @login_required("manager")
 def resolve_cancellation(cancellation_request_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = ManagerControl.resolve_cancellation_request(
         company_id=current_company_id(),

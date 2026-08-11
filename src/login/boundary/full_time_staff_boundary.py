@@ -31,7 +31,7 @@ def view_profile():
 @login_required("full_time_staff")
 def update_profile():
     # Get the new profile information sent by the frontend
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     # Pass the information to the Control
     result = FullTimeStaffControl.update_profile(
@@ -117,7 +117,7 @@ def decline_allocation(allocation_id):
 )
 @login_required("full_time_staff")
 def request_cancellation(allocation_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = FullTimeStaffControl.request_cancellation(
         company_id=current_company_id(),
@@ -157,7 +157,7 @@ def view_working_hours():
 )
 @login_required("full_time_staff")
 def submit_hours_dispute(working_hour_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = FullTimeStaffControl.submit_hours_dispute(
         company_id=current_company_id(),

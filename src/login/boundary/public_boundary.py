@@ -21,7 +21,7 @@ def contact_information():
 
 @public_bp.route("/contact", methods=["POST"])
 def submit_contact_enquiry():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     result = PublicControl.submit_contact_enquiry(data)
     return jsonify(result), 201 if result["success"] else 400
 
@@ -33,7 +33,7 @@ def subscription_plans():
 
 @public_bp.route("/register", methods=["POST"])
 def register():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     result = PublicControl.register_account(data)
     return jsonify(result), 201 if result["success"] else 400
 

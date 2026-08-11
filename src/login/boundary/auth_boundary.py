@@ -8,14 +8,14 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     result = AuthControl.login(data)
     return jsonify(result), 200 if result["success"] else 401
 
 
 @auth_bp.route("/verify-signup", methods=["POST"])
 def verify_signup():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = AuthControl.verify_signup(
         email=data.get("email"),
@@ -27,7 +27,7 @@ def verify_signup():
 
 @auth_bp.route("/resend-otp", methods=["POST"])
 def resend_otp():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = AuthControl.resend_verification(
         email=data.get("email")
@@ -44,7 +44,7 @@ def get_invitation(token):
 
 @auth_bp.route("/invitations/<token>/accept", methods=["POST"])
 def accept_invitation(token):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = AuthControl.accept_invitation(
         token=token,
@@ -57,7 +57,7 @@ def accept_invitation(token):
 @auth_bp.route("/setup-workspace", methods=["POST"])
 @login_required()
 def setup_workspace():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = AuthControl.setup_workspace(
         user_id=current_user_id(),
@@ -81,7 +81,7 @@ def logout():
 @auth_bp.route("/subscription/purchase", methods=["POST"])
 @login_required()
 def purchase_subscription():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = AuthControl.purchase_subscription(
         company_id=current_company_id(),
@@ -100,7 +100,7 @@ def registered_faq():
 @auth_bp.route("/reviews", methods=["POST"])
 @login_required()
 def submit_review():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = AuthControl.submit_review(
         user_id=current_user_id(),

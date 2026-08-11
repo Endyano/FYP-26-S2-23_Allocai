@@ -30,7 +30,7 @@ def view_profile():
 @login_required("part_time_staff")
 def update_profile():
     # Get the information sent by the frontend
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = PartTimeStaffControl.update_profile(
         company_id=current_company_id(),
@@ -55,7 +55,7 @@ def view_availability():
 @part_time_staff_bp.route("/availability", methods=["POST"])
 @login_required("part_time_staff")
 def create_availability():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = PartTimeStaffControl.create_availability(
         company_id=current_company_id(),
@@ -75,7 +75,7 @@ def create_availability():
 )
 @login_required("part_time_staff")
 def update_availability(availability_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = PartTimeStaffControl.update_availability(
         company_id=current_company_id(),
@@ -108,7 +108,7 @@ def delete_availability(availability_id):
 )
 @login_required("part_time_staff")
 def respond_to_allocation(allocation_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = PartTimeStaffControl.respond_to_allocation(
         company_id=current_company_id(),
@@ -178,7 +178,7 @@ def search_assigned_tasks():
 )
 @login_required("part_time_staff")
 def request_cancellation(allocation_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = PartTimeStaffControl.request_cancellation(
         company_id=current_company_id(),
@@ -221,7 +221,7 @@ def view_eligibility_hours():
 )
 @login_required("part_time_staff")
 def submit_hours_dispute(working_hour_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = PartTimeStaffControl.submit_hours_dispute(
         company_id=current_company_id(),

@@ -55,7 +55,7 @@ def view_subscription_plans():
 @platform_admin_bp.route("/subscription-plans", methods=["POST"])
 @login_required("platform_admin")
 def create_subscription_plan():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     result = PlatformAdminControl.create_subscription_plan(data)
     return jsonify(result), 201 if result["success"] else 400
 
@@ -63,7 +63,7 @@ def create_subscription_plan():
 @platform_admin_bp.route("/subscription-plans/<subscription_plan_id>", methods=["PUT"])
 @login_required("platform_admin")
 def update_subscription_plan(subscription_plan_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     result = PlatformAdminControl.update_subscription_plan(subscription_plan_id, data)
     return jsonify(result), 200 if result["success"] else 400
 
@@ -77,7 +77,7 @@ def view_reviews():
 @platform_admin_bp.route("/reviews/<review_id>/moderate", methods=["PATCH"])
 @login_required("platform_admin")
 def moderate_review(review_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     result = PlatformAdminControl.moderate_review(
         review_id=review_id,
         review_status=data.get("review_status")
@@ -110,7 +110,7 @@ def view_faqs():
 @platform_admin_bp.route("/faqs", methods=["POST"])
 @login_required("platform_admin")
 def create_faq():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     result = PlatformAdminControl.create_faq(data)
     return jsonify(result), 201 if result["success"] else 400
 
@@ -118,7 +118,7 @@ def create_faq():
 @platform_admin_bp.route("/faqs/<faq_id>", methods=["PUT", "PATCH"])
 @login_required("platform_admin")
 def update_faq(faq_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     result = PlatformAdminControl.update_faq(faq_id, data)
     return jsonify(result), 200 if result["success"] else 400
 

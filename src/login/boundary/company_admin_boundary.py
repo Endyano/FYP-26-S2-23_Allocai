@@ -40,7 +40,7 @@ def view_company_profile():
 )
 @login_required("company_admin")
 def update_company_profile():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = CompanyAdminControl.update_company_profile(
         company_id=current_company_id(),
@@ -63,7 +63,7 @@ def view_employee_accounts():
 @company_admin_bp.route("/employees/invite", methods=["POST"])
 @login_required("company_admin")
 def invite_employee():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = CompanyAdminControl.invite_employee(
         company_id=current_company_id(),
@@ -172,7 +172,7 @@ def view_audit_logs():
 @company_admin_bp.route("/departments", methods=["POST"])
 @login_required("company_admin")
 def create_department():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = CompanyAdminControl.create_department(
         company_id=current_company_id(),
@@ -199,7 +199,7 @@ def view_departments():
 )
 @login_required("company_admin")
 def update_department(department_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = CompanyAdminControl.update_department(
         company_id=current_company_id(),
@@ -229,7 +229,7 @@ def delete_department(department_id):
 @company_admin_bp.route("/skillsets", methods=["POST"])
 @login_required("company_admin")
 def create_skillset():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = CompanyAdminControl.create_skillset(
         company_id=current_company_id(),
@@ -268,7 +268,7 @@ def delete_skillset(skillset_id):
 @company_admin_bp.route("/roles", methods=["POST"])
 @login_required("company_admin")
 def create_role():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = CompanyAdminControl.create_role(
         company_id=current_company_id(),
@@ -295,7 +295,7 @@ def view_roles():
 )
 @login_required("company_admin")
 def update_role(role_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = CompanyAdminControl.update_role(
         company_id=current_company_id(),
@@ -313,7 +313,7 @@ def update_role(role_id):
 )
 @login_required("company_admin")
 def assign_role(company_member_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     result = CompanyAdminControl.assign_role(
         company_id=current_company_id(),
