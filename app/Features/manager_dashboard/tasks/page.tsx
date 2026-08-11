@@ -97,6 +97,12 @@ export default function TasksPage() {
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignError, setAssignError] = useState('');
 
+  const [suggestTask, setSuggestTask] = useState<Task | null>(null);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestCandidates, setSuggestCandidates] = useState<Staff[]>([]);
+  const [suggestError, setSuggestError] = useState('');
+  const [suggestApplyingId, setSuggestApplyingId] = useState<string | null>(null);
+
   async function loadAll() {
     setLoading(true);
     setError('');
@@ -200,6 +206,38 @@ export default function TasksPage() {
     const result = await apiFetch<{ staff?: Staff[] }>('/api/manager/staff');
     setStaffList(result.success ? result.staff || [] : []);
     setStaffLoading(false);
+  }
+
+  async function openSuggestModal(task: Task) {
+    setSuggestTask(task);
+    setSuggestCandidates([]);
+    setSuggestError('');
+    setSuggestLoading(true);
+    const result = await apiFetch<{ suggestions?: Staff[]; message?: string }>(
+      `/api/manager/tasks/${task.task_id}/suggestions`
+    );
+    if (result.success) {
+      setSuggestCandidates(result.suggestions || []);
+    } else {
+      setSuggestError(result.message || 'Could not generate suggestions.');
+    }
+    setSuggestLoading(false);
+  }
+
+  async function applySuggestion(candidateId: string) {
+    if (!suggestTask) return;
+    setSuggestApplyingId(candidateId);
+    const result = await apiFetch<{ success: boolean; message?: string }>(
+      `/api/manager/tasks/${suggestTask.task_id}/assign`,
+      { method: 'POST', body: JSON.stringify({ assigned_to: candidateId }) }
+    );
+    if (result.success) {
+      setSuggestTask(null);
+      await loadAll();
+    } else {
+      setSuggestError(result.message || 'Failed to assign task.');
+    }
+    setSuggestApplyingId(null);
   }
 
   async function handleAssign() {
@@ -367,6 +405,14 @@ export default function TasksPage() {
                           className="rounded-md bg-slate-900 hover:bg-slate-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-all"
                         >Assign</button>
                       )}
+                      {task.task_status === 'open' && (
+                        <button onClick={() => openSuggestModal(task)}
+                          className="flex items-center gap-1 rounded-md bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-3 py-1.5 text-xs font-semibold shadow-sm hover:opacity-90 transition-all"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 2v4"/><circle cx="18" cy="6" r="3"/></svg>
+                          Suggest Staff (AI)
+                        </button>
+                      )}
                       {task.task_status !== 'cancelled' && task.task_status !== 'completed' && (
                         <button onClick={() => openEdit(task)}
                           className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm transition-all"
@@ -440,6 +486,62 @@ export default function TasksPage() {
                 className="rounded-xl bg-white border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
               >Cancel</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suggest Staff (AI) Modal */}
+      {suggestTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-sm shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Suggest Staff (AI)</h3>
+                </div>
+                <p className="text-sm text-slate-500 mt-1">{suggestTask.task_title} · {formatDate(suggestTask.task_date)} {formatTime(suggestTask.start_time)}–{formatTime(suggestTask.end_time)}</p>
+              </div>
+              <button onClick={() => setSuggestTask(null)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-full p-2 transition-colors border border-slate-200">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            {suggestLoading ? (
+              <p className="mt-2 text-sm text-slate-400 animate-pulse">Analysing skillset and availability...</p>
+            ) : suggestError ? (
+              <p className="mt-2 text-sm text-rose-600 font-medium">{suggestError}</p>
+            ) : suggestCandidates.length === 0 ? (
+              <div className="mt-2 rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center">
+                <p className="text-sm font-medium text-slate-600">No eligible staff found for this task.</p>
+                <p className="text-xs text-slate-400 mt-1">No one currently matches the required skillset, availability, and hours cap for this shift.</p>
+              </div>
+            ) : (
+              <div className="mt-2">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ranked by best fit</p>
+                <div className="space-y-2 max-h-72 overflow-y-auto">
+                  {suggestCandidates.map((c, i) => (
+                    <div key={c.company_member_id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="shrink-0 h-6 w-6 rounded-full bg-violet-100 text-violet-700 text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 truncate">{c.full_name}</p>
+                          <p className="text-xs text-slate-500 capitalize">
+                            {c.employee_type ? c.employee_type.replace('_', '-') : c.role.replace(/_/g, ' ')}
+                            {c.remaining_eligible_hours != null ? ` · ${c.remaining_eligible_hours}h remaining` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <button onClick={() => applySuggestion(c.company_member_id)} disabled={suggestApplyingId === c.company_member_id}
+                        className="shrink-0 rounded-lg bg-slate-900 hover:bg-slate-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-all disabled:opacity-60"
+                      >{suggestApplyingId === c.company_member_id ? 'Assigning...' : 'Assign'}</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
