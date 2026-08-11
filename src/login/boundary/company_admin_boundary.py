@@ -87,6 +87,20 @@ def suspend_employee(company_member_id):
 
     return jsonify(result), 200 if result["success"] else 400
 
+# Reactivate a suspended employee in the company workspace
+@company_admin_bp.route(
+    "/employees/<company_member_id>/unsuspend",
+    methods=["PATCH"]
+)
+@login_required("company_admin")
+def unsuspend_employee(company_member_id):
+    result = CompanyAdminControl.unsuspend_employee(
+        company_id=current_company_id(),
+        company_member_id=company_member_id
+    )
+
+    return jsonify(result), 200 if result["success"] else 400
+
 # Remove an employee from the company workspace
 @company_admin_bp.route(
     "/employees/<company_member_id>",

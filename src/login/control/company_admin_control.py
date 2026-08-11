@@ -202,6 +202,26 @@ class CompanyAdminControl:
         }
 
     @staticmethod
+    def unsuspend_employee(company_id, company_member_id):
+        # Reactivate the employee through the Entity
+        employee = CompanyMemberEntity.unsuspend_employee(
+            company_id=company_id,
+            company_member_id=company_member_id
+        )
+
+        if not employee:
+            return {
+                "success": False,
+                "message": "Employee was not found or is not currently suspended."
+            }
+
+        return {
+            "success": True,
+            "message": "Employee account reactivated successfully.",
+            "employee": employee
+        }
+
+    @staticmethod
     def remove_employee(company_id, company_member_id):
         # Remove the employee through the Entity
         employee = CompanyMemberEntity.remove_employee(

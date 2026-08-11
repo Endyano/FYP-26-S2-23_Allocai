@@ -133,6 +133,26 @@ class CompanyMemberEntity:
         )
 
     @staticmethod
+    def unsuspend_employee(company_id, company_member_id):
+        # Reactivate a suspended employee membership in this company
+        query = """
+            UPDATE company_members cm
+            SET member_status = 'active'
+            WHERE cm.company_id = %s
+            AND cm.company_member_id = %s
+            AND cm.member_status = 'suspended'
+            RETURNING *;
+        """
+
+        return Database.execute(
+            query,
+            (
+                company_id,
+                company_member_id
+            )
+        )
+
+    @staticmethod
     def remove_employee(company_id, company_member_id):
         # Remove the employee from this company workspace
         query = """

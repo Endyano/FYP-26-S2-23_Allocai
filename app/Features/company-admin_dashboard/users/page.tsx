@@ -125,19 +125,17 @@ export default function UsersPage() {
     setSuspendingId(user.company_member_id);
     try {
       const isSuspended = user.member_status === 'suspended';
-      // Backend only exposes a suspend action; unsuspending isn't supported
-      // yet, so only allow going active -> suspended from here.
-      if (isSuspended) return;
+      const action = isSuspended ? 'unsuspend' : 'suspend';
 
       const result = await apiFetch(
-        `/api/company-admin/employees/${user.company_member_id}/suspend`,
+        `/api/company-admin/employees/${user.company_member_id}/${action}`,
         { method: 'PATCH' }
       );
 
       if (result.success) {
         await loadEmployees();
       } else {
-        setError(result.message || 'Could not suspend employee.');
+        setError(result.message || `Could not ${action} employee.`);
       }
     } catch {
       setError('Could not reach the server.');
@@ -336,13 +334,17 @@ export default function UsersPage() {
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => toggleSuspend(user)}
-                        disabled={user.member_status === 'suspended' || suspendingId === user.company_member_id}
-                        className="rounded-md bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-50 hover:border-amber-200 shadow-sm transition-all disabled:opacity-50"
+                        disabled={suspendingId === user.company_member_id}
+                        className={`rounded-md bg-white border px-3 py-1.5 text-xs font-semibold shadow-sm transition-all disabled:opacity-50 ${
+                          user.member_status === 'suspended'
+                            ? 'text-emerald-600 border-slate-200 hover:bg-emerald-50 hover:border-emerald-200'
+                            : 'text-amber-600 border-slate-200 hover:bg-amber-50 hover:border-amber-200'
+                        }`}
                       >
                         {suspendingId === user.company_member_id
-                          ? 'Suspending...'
+                          ? (user.member_status === 'suspended' ? 'Unsuspending...' : 'Suspending...')
                           : user.member_status === 'suspended'
-                          ? 'Suspended'
+                          ? 'Unsuspend'
                           : 'Suspend'}
                       </button>
                       <button
