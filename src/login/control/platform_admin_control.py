@@ -1,3 +1,5 @@
+from datetime import date
+
 from entity.audit_log_entity import AuditLogEntity
 from entity.company_entity import CompanyEntity
 from entity.faq_entity import FaqEntity
@@ -129,10 +131,28 @@ class PlatformAdminControl:
         }
 
     @staticmethod
-    def view_audit_logs():
+    def view_audit_logs(start_date=None, end_date=None):
+        try:
+            parsed_start = date.fromisoformat(start_date) if start_date else None
+            parsed_end = date.fromisoformat(end_date) if end_date else None
+        except ValueError:
+            return {
+                "success": False,
+                "message": "Dates must use the YYYY-MM-DD format."
+            }
+
+        if parsed_start and parsed_end and parsed_start > parsed_end:
+            return {
+                "success": False,
+                "message": "Start date cannot be later than end date."
+            }
+
         return {
             "success": True,
-            "audit_logs": AuditLogEntity.get_recent_logs()
+            "audit_logs": AuditLogEntity.get_recent_logs(
+                start_date=start_date,
+                end_date=end_date
+            )
         }
 
     @staticmethod

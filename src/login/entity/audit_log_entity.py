@@ -101,7 +101,9 @@ class AuditLogEntity:
         )
 
     @staticmethod
-    def get_recent_logs():
+    def get_recent_logs(start_date=None, end_date=None):
+        params = []
+
         query = """
             SELECT
                 al.audit_log_id,
@@ -119,7 +121,17 @@ class AuditLogEntity:
             FROM audit_logs al
             LEFT JOIN users u ON u.user_id = al.user_id
             LEFT JOIN companies c ON c.company_id = al.company_id
-            ORDER BY al.created_at DESC
-            LIMIT 100;
+            WHERE 1=1
         """
-        return Database.fetch_all(query)
+
+        if start_date:
+            query += " AND al.created_at::date >= %s"
+            params.append(start_date)
+
+        if end_date:
+            query += " AND al.created_at::date <= %s"
+            params.append(end_date)
+
+        query += " ORDER BY al.created_at DESC LIMIT 100;"
+
+        return Database.fetch_all(query, params)

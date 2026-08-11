@@ -142,6 +142,11 @@ export default function PlatformAdminDashboard() {
   const [faqFormError, setFaqFormError] = useState('');
   const [deleteFaqModal, setDeleteFaqModal] = useState<Faq | null>(null);
 
+  const [auditStartDate, setAuditStartDate] = useState('');
+  const [auditEndDate, setAuditEndDate] = useState('');
+  const [auditError, setAuditError] = useState('');
+  const [auditLoading, setAuditLoading] = useState(false);
+
   useEffect(() => {
     async function checkSession() {
       const result = await apiFetch<{ full_name?: string; role?: string }>('/api/auth/session');
@@ -175,6 +180,30 @@ export default function PlatformAdminDashboard() {
     setAnalytics(analyticsResult.analytics ?? null);
     setFaqs(faqsResult.faqs ?? []);
     setLoading(false);
+  }
+
+  async function loadAuditLogs() {
+    setAuditLoading(true);
+    setAuditError('');
+    const params = new URLSearchParams();
+    if (auditStartDate) params.set('start_date', auditStartDate);
+    if (auditEndDate) params.set('end_date', auditEndDate);
+    const result = await apiFetch<{ audit_logs?: AuditLog[]; message?: string }>(
+      `/api/platform-admin/audit-logs${params.toString() ? `?${params.toString()}` : ''}`
+    );
+    if (result.success) {
+      setAuditLogs(result.audit_logs ?? []);
+    } else {
+      setAuditError(result.message || 'Failed to filter audit logs.');
+    }
+    setAuditLoading(false);
+  }
+
+  function clearAuditFilter() {
+    setAuditStartDate('');
+    setAuditEndDate('');
+    setAuditError('');
+    loadAuditLogs();
   }
 
   useEffect(() => { if (ready) loadAll(); }, [ready]);
@@ -617,7 +646,46 @@ export default function PlatformAdminDashboard() {
 
         {/* Audit Logs */}
         {activeTab === 'auditlogs' && (
-          <div className="animate-[fadeIn_0.3s_ease-out]">
+          <div className="animate-[fadeIn_0.3s_ease-out] space-y-6">
+            <div className="rounded-3xl bg-white border border-slate-100 shadow-sm p-6">
+              <h2 className="text-sm font-bold text-slate-700 mb-4">Filter by Date Range</h2>
+              <div className="flex flex-wrap items-end gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">From</label>
+                  <input
+                    type="date"
+                    value={auditStartDate}
+                    onChange={e => setAuditStartDate(e.target.value)}
+                    className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">To</label>
+                  <input
+                    type="date"
+                    value={auditEndDate}
+                    onChange={e => setAuditEndDate(e.target.value)}
+                    className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                  />
+                </div>
+                <button
+                  onClick={loadAuditLogs}
+                  disabled={auditLoading}
+                  className="rounded-xl bg-slate-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-slate-800 disabled:opacity-60"
+                >
+                  {auditLoading ? 'Filtering...' : 'Apply Filter'}
+                </button>
+                <button
+                  onClick={clearAuditFilter}
+                  disabled={auditLoading}
+                  className="rounded-xl bg-white border border-slate-200 text-slate-700 px-5 py-2.5 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
+                >
+                  Clear
+                </button>
+              </div>
+              {auditError && <p className="mt-3 text-sm text-rose-600 font-medium">{auditError}</p>}
+            </div>
+
             <div className="rounded-3xl bg-white border border-slate-100 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-slate-50 flex items-center justify-between">
                 <div>

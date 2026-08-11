@@ -84,7 +84,11 @@ def analytics():
 @platform_admin_bp.route("/audit-logs", methods=["GET"])
 @login_required("platform_admin")
 def audit_logs():
-    return jsonify(PlatformAdminControl.view_audit_logs())
+    result = PlatformAdminControl.view_audit_logs(
+        start_date=request.args.get("start_date"),
+        end_date=request.args.get("end_date")
+    )
+    return jsonify(result), 200 if result["success"] else 400
 
 
 @platform_admin_bp.route("/faqs", methods=["GET"])
