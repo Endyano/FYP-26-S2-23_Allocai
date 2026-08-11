@@ -67,6 +67,26 @@ class CompanyMemberEntity:
         return Database.fetch_one(query, (user_id, role))
 
     @staticmethod
+    def get_session_validity(user_id, company_member_id):
+        # Re-checked on every authenticated request (not just at login) so
+        # a suspension takes effect immediately instead of only on next
+        # login. company_member_id may be None (platform_admin /
+        # registered_user sessions have no workspace membership).
+        query = """
+            SELECT
+                u.account_status,
+                cm.member_status,
+                c.company_status
+            FROM users u
+            LEFT JOIN company_members cm
+                ON cm.company_member_id = %s
+            LEFT JOIN companies c
+                ON c.company_id = cm.company_id
+            WHERE u.user_id = %s;
+        """
+        return Database.fetch_one(query, (company_member_id, user_id))
+
+    @staticmethod
     def get_by_id(company_id, company_member_id):
         query = """
             SELECT *
