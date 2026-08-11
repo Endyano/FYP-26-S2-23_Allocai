@@ -35,9 +35,32 @@ class CompanyMemberEntity:
                 ON mr.company_member_id = cm.company_member_id
             JOIN roles r
                 ON r.role_id = mr.role_id
+            JOIN companies c
+                ON c.company_id = cm.company_id
             WHERE cm.user_id = %s
             AND LOWER(r.role_name) = LOWER(%s)
             AND cm.member_status = 'active'
+            AND c.company_status = 'active'
+            ORDER BY cm.joined_at DESC
+            LIMIT 1;
+        """
+        return Database.fetch_one(query, (user_id, role))
+
+    @staticmethod
+    def get_membership_status(user_id, role):
+        # Looked up ignoring status filters, purely to explain to a blocked
+        # user *why* they were denied login access to this role.
+        query = """
+            SELECT cm.member_status, c.company_status
+            FROM company_members cm
+            JOIN member_roles mr
+                ON mr.company_member_id = cm.company_member_id
+            JOIN roles r
+                ON r.role_id = mr.role_id
+            JOIN companies c
+                ON c.company_id = cm.company_id
+            WHERE cm.user_id = %s
+            AND LOWER(r.role_name) = LOWER(%s)
             ORDER BY cm.joined_at DESC
             LIMIT 1;
         """

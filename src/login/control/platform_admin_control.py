@@ -34,6 +34,22 @@ class PlatformAdminControl:
         }
 
     @staticmethod
+    def unsuspend_company(company_id, user_id):
+        company = CompanyEntity.update_status(company_id, "active")
+
+        if not company:
+            return {
+                "success": False,
+                "message": "Company account was not found."
+            }
+
+        return {
+            "success": True,
+            "message": "Company account reactivated successfully.",
+            "company": company
+        }
+
+    @staticmethod
     def delete_company(company_id, user_id):
         company = CompanyEntity.update_status(company_id, "cancelled")
 

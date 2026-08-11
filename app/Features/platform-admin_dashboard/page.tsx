@@ -338,6 +338,20 @@ export default function PlatformAdminDashboard() {
     setProcessing(false);
   }
 
+  async function unsuspendTenant(company: Company) {
+    setProcessing(true); setError('');
+    const result = await apiFetch<{ success: boolean; message?: string }>(
+      `/api/platform-admin/companies/${company.company_id}/unsuspend`,
+      { method: 'PATCH' }
+    );
+    if (result.success) {
+      loadAll();
+    } else {
+      setError(result.message || 'Failed to reactivate tenant.');
+    }
+    setProcessing(false);
+  }
+
   async function deleteTenant() {
     if (!deleteTenantModal) return;
     setProcessing(true); setError('');
@@ -694,9 +708,13 @@ export default function PlatformAdminDashboard() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
-                            {comp.company_status === 'active' && (
+                            {comp.company_status === 'active' ? (
                               <button onClick={() => setSuspendModal(comp)} className="rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-50">
                                 Suspend
+                              </button>
+                            ) : (
+                              <button onClick={() => unsuspendTenant(comp)} disabled={processing} className="rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 disabled:opacity-60">
+                                Unsuspend
                               </button>
                             )}
                             {comp.company_status !== 'cancelled' && (

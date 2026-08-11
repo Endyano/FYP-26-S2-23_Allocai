@@ -26,6 +26,16 @@ def suspend_company(company_id):
     return jsonify(result), 200 if result["success"] else 400
 
 
+@platform_admin_bp.route("/companies/<company_id>/unsuspend", methods=["PATCH"])
+@login_required("platform_admin")
+def unsuspend_company(company_id):
+    result = PlatformAdminControl.unsuspend_company(
+        company_id=company_id,
+        user_id=current_user_id()
+    )
+    return jsonify(result), 200 if result["success"] else 400
+
+
 @platform_admin_bp.route("/companies/<company_id>", methods=["DELETE"])
 @login_required("platform_admin")
 def delete_company(company_id):

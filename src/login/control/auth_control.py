@@ -57,10 +57,25 @@ class AuthControl:
             role=role
         )
 
-        if not member:
-            return None, "You do not have access to this workspace role."
+        if member:
+            return member, None
 
-        return member, None
+        # No active membership -- look up why, so a suspended/removed
+        # account gets a specific, honest reason instead of a generic one.
+        status = CompanyMemberEntity.get_membership_status(
+            user_id=user["user_id"],
+            role=role
+        )
+
+        if status:
+            if status["company_status"] != "active":
+                return None, "Your company's workspace has been suspended. Please contact your platform administrator."
+            if status["member_status"] == "suspended":
+                return None, "Your account has been suspended by your company admin."
+            if status["member_status"] == "removed":
+                return None, "This account no longer has access to this workspace."
+
+        return None, "You do not have access to this workspace role."
 
     @staticmethod
     def login(data):
@@ -123,14 +138,38 @@ class AuthControl:
                 }
         else:
             # No role requested: use the most privileged/specific role
-            # this account actually has access to.
+            # this account actually has access to. registered_user is
+            # checked last, and only as a fallback when nothing else was
+            # blocked by a suspension/removal -- otherwise a suspended
+            # employee could silently log in as a fresh registered_user
+            # instead of being told their access was revoked.
+            blocking_error = None
+
             for candidate in AuthControl.ROLE_PRIORITY:
+                if candidate == "registered_user":
+                    continue
+
                 candidate_member, error = AuthControl._resolve_role_access(user, candidate)
 
                 if not error:
                     role = candidate
                     member = candidate_member
                     break
+
+                if not blocking_error and ("suspended" in error or "no longer has access" in error):
+                    blocking_error = error
+
+            if not role:
+                if blocking_error:
+                    return {
+                        "success": False,
+                        "message": blocking_error
+                    }
+
+                member, error = AuthControl._resolve_role_access(user, "registered_user")
+
+                if not error:
+                    role = "registered_user"
 
             if not role:
                 return {
