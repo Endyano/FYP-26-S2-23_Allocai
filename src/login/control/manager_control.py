@@ -123,6 +123,12 @@ class ManagerControl:
                 "message": "Skillset was not found."
             }
 
+        if SkillsetEntity.staff_has_skillset(company_id, company_member_id, skillset_id):
+            return {
+                "success": False,
+                "message": "This staff member already has that skillset."
+            }
+
         result = SkillsetEntity.assign_to_staff(
             company_id=company_id,
             company_member_id=company_member_id,
