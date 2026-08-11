@@ -8,7 +8,7 @@ type Task = {
   task_title: string;
   task_description: string | null;
   priority_level: 'low' | 'medium' | 'high';
-  task_status: 'draft' | 'open' | 'allocated' | 'completed' | 'cancelled';
+  task_status: 'draft' | 'open' | 'pending' | 'allocated' | 'completed' | 'cancelled';
   task_date: string;
   start_time: string;
   end_time: string;
@@ -40,6 +40,7 @@ const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
 
 const STATUS_STYLES: Record<string, string> = {
   open:      'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
+  pending:   'bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-600/20',
   allocated: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
   completed: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/20',
   cancelled: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20',
@@ -47,7 +48,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  open: 'Open', allocated: 'Allocated', completed: 'Completed', cancelled: 'Cancelled', draft: 'Draft',
+  open: 'Open', pending: 'Pending', allocated: 'Allocated', completed: 'Completed', cancelled: 'Cancelled', draft: 'Draft',
 };
 
 const EMPTY_FORM = {
@@ -273,7 +274,7 @@ export default function TasksPage() {
     finally { setActingId(null); setConfirmCancelId(null); }
   }
 
-  const statuses = ['All', 'open', 'allocated', 'completed', 'cancelled'];
+  const statuses = ['All', 'open', 'pending', 'allocated', 'completed', 'cancelled'];
   const counts = statuses.reduce((acc, s) => {
     acc[s] = s === 'All' ? tasks.length : tasks.filter(t => t.task_status === s).length;
     return acc;

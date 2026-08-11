@@ -273,7 +273,7 @@ class ManagerControl:
             assigned_by=assigned_by
         )
 
-        TaskEntity.update_status(company_id, task_id, "allocated")
+        TaskEntity.update_status(company_id, task_id, "pending")
 
         return {
             "success": True,

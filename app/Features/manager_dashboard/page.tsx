@@ -10,7 +10,7 @@ type Task = {
   assigned_staff_name: string | null;
   task_date: string;
   priority_level: 'low' | 'medium' | 'high';
-  task_status: 'draft' | 'open' | 'allocated' | 'completed' | 'cancelled';
+  task_status: 'draft' | 'open' | 'pending' | 'allocated' | 'completed' | 'cancelled';
 };
 
 type AllocationStatusCount = {
@@ -32,6 +32,7 @@ type Dispute = {
 
 const STATUS_STYLES: Record<string, string> = {
   open:      'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20',
+  pending:   'bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-600/20',
   allocated: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20',
   completed: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/20',
   cancelled: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20',
@@ -40,6 +41,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 const DOT_STYLES: Record<string, string> = {
   open:      'bg-amber-500',
+  pending:   'bg-violet-500',
   allocated: 'bg-emerald-500',
   completed: 'bg-sky-500',
   cancelled: 'bg-rose-500',
@@ -48,6 +50,7 @@ const DOT_STYLES: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   open: 'Open',
+  pending: 'Pending',
   allocated: 'Allocated',
   completed: 'Completed',
   cancelled: 'Cancelled',
@@ -147,6 +150,7 @@ export default function DashboardPage() {
   const taskCounts = {
     All: tasks.length,
     open: tasks.filter((t) => t.task_status === 'open').length,
+    pending: tasks.filter((t) => t.task_status === 'pending').length,
     allocated: tasks.filter((t) => t.task_status === 'allocated').length,
     completed: tasks.filter((t) => t.task_status === 'completed').length,
     cancelled: tasks.filter((t) => t.task_status === 'cancelled').length,
@@ -325,7 +329,7 @@ export default function DashboardPage() {
             <p className="text-xs text-slate-500 mt-0.5">Tasks across all departments</p>
           </div>
           <div className="flex gap-2 bg-white rounded-2xl border border-slate-200 p-1.5 shadow-sm flex-wrap">
-            {(['All', 'open', 'allocated', 'completed', 'cancelled'] as const).map(f => (
+            {(['All', 'open', 'pending', 'allocated', 'completed', 'cancelled'] as const).map(f => (
               <button
                 key={f}
                 onClick={() => setTaskFilter(f)}

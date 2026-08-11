@@ -253,6 +253,8 @@ class PartTimeStaffControl:
             # Reopen the task so it shows back up as unallocated, not
             # stuck showing "Allocated" with no staff attached
             TaskEntity.update_status(company_id, allocation["task_id"], "open")
+        else:
+            TaskEntity.update_status(company_id, allocation["task_id"], "allocated")
 
         return {
             "success": True,

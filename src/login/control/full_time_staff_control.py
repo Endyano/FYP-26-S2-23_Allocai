@@ -149,6 +149,8 @@ class FullTimeStaffControl:
                 )
             }
 
+        TaskEntity.update_status(company_id, allocation["task_id"], "allocated")
+
         return {
             "success": True,
             "message": "Allocation accepted successfully.",
