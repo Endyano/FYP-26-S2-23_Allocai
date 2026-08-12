@@ -587,14 +587,10 @@ export default function PlatformAdminDashboard() {
         </nav>
 
         <div className="p-4 border-t border-slate-200 space-y-1">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <div className="w-9 h-9 rounded-full bg-[#2D2D2D] text-white flex items-center justify-center font-semibold text-base flex-shrink-0">
-              {userName.charAt(0)}
-            </div>
-            <div className="text-left">
-              <p className="text-sm font-bold text-slate-900">{userName}</p>
-              <p className="text-xs text-slate-500">Platform Admin</p>
-            </div>
+          <div className="px-4 py-2 mb-2">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Signed in as</p>
+            <p className="text-sm font-bold text-slate-700 capitalize mt-0.5 truncate">{userName}</p>
+            <p className="text-xs text-slate-400">Platform Admin</p>
           </div>
           <button
             onClick={() => setShowLogoutModal(true)}
