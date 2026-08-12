@@ -131,7 +131,7 @@ export default function HomePage() {
         {/* Hero Section */}
         <section className="mt-20 mb-24 text-center flex flex-col items-center">
           <h1 className="mx-auto mt-8 max-w-4xl text-6xl font-extrabold tracking-tight sm:text-8xl leading-[1] text-zinc-900">
-            Plan your team's day, <br />
+            Planning your team's day, <br />
             <span className="text-zinc-400">made simple.</span>
           </h1>
           <p className="mt-10 max-w-2xl text-xl text-zinc-600 leading-relaxed font-medium">
