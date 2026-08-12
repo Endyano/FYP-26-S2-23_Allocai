@@ -71,22 +71,22 @@ export default function FTDashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-        <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
+        <div className="rounded-2xl bg-white border border-slate-200 border-t-4 border-t-indigo-500 shadow-sm p-6">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Working Hours</p>
           <p className="text-4xl font-black text-slate-900 mt-2">
             {loading ? <span className="text-slate-300 animate-pulse">—</span> : (hoursUsed ?? 0)}
             <span className="text-sm font-medium text-slate-400"> / {hoursLimit ?? '—'}h</span>
           </p>
         </div>
-        <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
+        <div className="rounded-2xl bg-white border border-slate-200 border-t-4 border-t-sky-500 shadow-sm p-6">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Upcoming Tasks</p>
           <p className="text-4xl font-black text-slate-900 mt-2">{totalTasks}</p>
         </div>
-        <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
+        <div className="rounded-2xl bg-white border border-slate-200 border-t-4 border-t-amber-500 shadow-sm p-6">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Response</p>
           <p className="text-4xl font-black text-amber-500 mt-2">{pendingTasks}</p>
         </div>
-        <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
+        <div className="rounded-2xl bg-white border border-slate-200 border-t-4 border-t-emerald-500 shadow-sm p-6">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Accepted</p>
           <p className="text-4xl font-black text-emerald-500 mt-2">{acceptedTasks}</p>
         </div>
