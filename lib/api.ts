@@ -9,14 +9,23 @@ export async function apiFetch<T = Record<string, unknown>>(
   path: string,
   options: RequestInit = {}
 ): Promise<ApiResult<T>> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    ...options,
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+      ...options,
+    });
+  } catch {
+    return {
+      success: false,
+      message: "Could not reach the server.",
+    } as ApiResult<T>;
+  }
 
   const data = await response.json().catch(() => ({
     success: false,
