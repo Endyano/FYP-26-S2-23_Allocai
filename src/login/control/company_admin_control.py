@@ -180,7 +180,8 @@ class CompanyAdminControl:
                 role_name=role,
                 invitation_token=invitation["invitation_token"]
             )
-        except Exception:
+        except Exception as e:
+            print(f"[invite email] failed to send to {email}: {type(e).__name__}: {e}")
             invitation["email_sent"] = False
         else:
             invitation["email_sent"] = True
