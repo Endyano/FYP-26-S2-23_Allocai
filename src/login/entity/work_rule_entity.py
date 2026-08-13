@@ -134,12 +134,15 @@ class WorkRuleEntity:
         ))
 
     @staticmethod
-    def get_pending_by_company(company_id):
-        # Includes pending proposals plus recently-decided ones (approved/
-        # rejected), so a decision stays visible in the approvals table
-        # instead of disappearing the moment it's actioned. A staff
-        # member's decided proposal is replaced the next time a new one
-        # is submitted for them (see propose()'s ON CONFLICT clause).
+    def get_pending_by_company(company_id, include_decided=False):
+        # By default returns only proposals still awaiting a decision.
+        # Pass include_decided=True to also include recently-decided ones
+        # (approved/rejected), so a decision stays visible in the
+        # dedicated approvals table instead of disappearing the moment
+        # it's actioned. A staff member's decided proposal is replaced
+        # the next time a new one is submitted for them (see propose()'s
+        # ON CONFLICT clause).
+        statuses = ('pending', 'approved', 'rejected') if include_decided else ('pending',)
         query = """
             SELECT
                 swr.staff_work_rule_id,
@@ -166,12 +169,12 @@ class WorkRuleEntity:
             LEFT JOIN company_members rvcm ON rvcm.company_member_id = swr.reviewed_by
             LEFT JOIN users ru ON ru.user_id = rvcm.user_id
             WHERE swr.company_id = %s
-            AND swr.proposal_status IN ('pending', 'approved', 'rejected')
+            AND swr.proposal_status = ANY(%s)
             ORDER BY
                 CASE WHEN swr.proposal_status = 'pending' THEN 0 ELSE 1 END,
                 swr.updated_at DESC;
         """
-        return Database.fetch_all(query, (company_id,))
+        return Database.fetch_all(query, (company_id, list(statuses)))
 
     @staticmethod
     def approve(company_id, staff_work_rule_id, reviewed_by):

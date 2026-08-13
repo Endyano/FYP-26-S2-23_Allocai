@@ -55,7 +55,7 @@ export default function HourLimitApprovalsPage() {
   async function loadAll() {
     setLoading(true);
     setError('');
-    const result = await apiFetch<{ pending_work_rules?: PendingWorkRule[] }>('/api/company-admin/work-rules/pending');
+    const result = await apiFetch<{ pending_work_rules?: PendingWorkRule[] }>('/api/company-admin/work-rules/pending?include_decided=true');
     if (result.success) setRules(result.pending_work_rules || []);
     else setError(result.message || 'Could not load hour-limit proposals.');
     setLoading(false);

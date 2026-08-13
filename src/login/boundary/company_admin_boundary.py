@@ -120,7 +120,8 @@ def remove_employee(company_member_id):
 @login_required("company_admin")
 def view_pending_work_rules():
     result = CompanyAdminControl.view_pending_work_rules(
-        company_id=current_company_id()
+        company_id=current_company_id(),
+        include_decided=request.args.get("include_decided") == "true"
     )
 
     return jsonify(result), 200

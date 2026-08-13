@@ -258,10 +258,10 @@ class CompanyAdminControl:
         }
 
     @staticmethod
-    def view_pending_work_rules(company_id):
+    def view_pending_work_rules(company_id, include_decided=False):
         return {
             "success": True,
-            "pending_work_rules": WorkRuleEntity.get_pending_by_company(company_id)
+            "pending_work_rules": WorkRuleEntity.get_pending_by_company(company_id, include_decided=include_decided)
         }
 
     @staticmethod
