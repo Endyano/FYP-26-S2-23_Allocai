@@ -1,31 +1,37 @@
 import os
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
-SMTP_HOST = os.getenv("SMTP_HOST")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USERNAME = os.getenv("SMTP_USERNAME")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+SENDGRID_FROM_EMAIL = os.getenv("SENDGRID_FROM_EMAIL")
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "Allocai")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
 def send_email(to_email, subject, html_body):
-    message = MIMEMultipart("alternative")
-    message["Subject"] = subject
-    message["From"] = f"{SMTP_FROM_NAME} <{SMTP_USERNAME}>"
-    message["To"] = to_email
-    message.attach(MIMEText(html_body, "html"))
+    # Sent over SendGrid's HTTPS API rather than raw SMTP -- Render (and
+    # most free-tier hosts) block outbound SMTP entirely, but never
+    # block HTTPS.
+    response = requests.post(
+        "https://api.sendgrid.com/v3/mail/send",
+        headers={
+            "Authorization": f"Bearer {SENDGRID_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "personalizations": [{"to": [{"email": to_email}]}],
+            "from": {"email": SENDGRID_FROM_EMAIL, "name": SMTP_FROM_NAME},
+            "subject": subject,
+            "content": [{"type": "text/html", "value": html_body}]
+        },
+        timeout=10
+    )
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-        server.starttls()
-        server.login(SMTP_USERNAME, SMTP_PASSWORD)
-        server.sendmail(SMTP_USERNAME, [to_email], message.as_string())
+    if response.status_code >= 400:
+        raise RuntimeError(f"SendGrid API error {response.status_code}: {response.text}")
 
 
 def send_invitation_email(to_email, company_name, role_name, invitation_token):
