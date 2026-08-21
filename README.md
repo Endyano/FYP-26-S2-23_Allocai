@@ -47,6 +47,9 @@ SMTP_FROM_NAME=Allocai
 FRONTEND_URL=http://localhost:3000
 
 GEMINI_API_KEY=AQ.Ab8RN6Lb7DqteH80Od4XD5bgij-odu2VYulKyVR_B8VqtcMuQg
+
+SENDGRID_API_KEY=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
+SENDGRID_FROM_EMAIL=justinfrancisco969@gmail.com
 ```
 
 Then run the backend:
