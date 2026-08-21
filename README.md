@@ -46,7 +46,7 @@ SMTP_PASSWORD=wffh saeu srof ryzi
 SMTP_FROM_NAME=Allocai
 FRONTEND_URL=http://localhost:3000
 
-GEMINI_API_KEY=AQ.Ab8RN6LEGcyKP6HbzxJ6NhkiwlLZtL5X1rlmlaRGsfaS9a3ldw
+GEMINI_API_KEY=ask-justin-for-this-key
 
 SENDGRID_API_KEY=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
 SENDGRID_FROM_EMAIL=justinfrancisco969@gmail.com
