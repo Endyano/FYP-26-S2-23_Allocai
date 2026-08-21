@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import datetime, timezone
 
 from google.genai import types
@@ -77,17 +78,30 @@ today's date. If no time is mentioned, pick sensible business hours for
 the described work. Only choose a department_name or skillset_name if
 it clearly matches one of the known lists above; otherwise leave it null."""
 
-        try:
-            response = get_gemini_client().models.generate_content(
-                model="gemini-flash-latest",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=_DRAFT_SCHEMA,
-                ),
-            )
-            draft = json.loads(response.text)
-        except Exception:
+        draft = None
+        last_error = None
+
+        # gemini-flash-latest occasionally returns a transient 503 under
+        # high demand -- retry a couple of times before giving up.
+        for attempt in range(3):
+            try:
+                response = get_gemini_client().models.generate_content(
+                    model="gemini-flash-latest",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=_DRAFT_SCHEMA,
+                    ),
+                )
+                draft = json.loads(response.text)
+                break
+            except Exception as e:
+                last_error = e
+                if attempt < 2:
+                    time.sleep(2)
+
+        if draft is None:
+            print(f"[ai draft] failed to generate task draft: {type(last_error).__name__}: {last_error}")
             return {
                 "success": False,
                 "message": "Could not generate a task draft. Please try again."
